@@ -63,9 +63,14 @@ jobs:
         run: python -m src.main seed
 
       # ---- Publication du dashboard sur GitHub Pages ----
-      # Fait AVANT la boucle : le dashboard est en ligne en quelques minutes,
-      # avec les donnees du cycle precedent (les alertes temps reel passent par
-      # Telegram ; le dashboard sert a parcourir l'etat).
+      # Un check frais juste avant le snapshot pour que le dashboard publie
+      # reflete l'etat courant (et pas seulement le cycle precedent).
+      - name: Fresh check before snapshot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m src.main once || true
+
       - name: Build dashboard snapshot
         run: python -m src.main snapshot site/index.html
 

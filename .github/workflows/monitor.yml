@@ -62,36 +62,15 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python -m src.main seed
 
-      # ---- Publication du dashboard sur GitHub Pages ----
-      # Un check frais juste avant le snapshot pour que le dashboard publie
-      # reflete l'etat courant (et pas seulement le cycle precedent).
-      - name: Fresh check before snapshot
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python -m src.main once || true
-
-      - name: Build dashboard snapshot
-        run: python -m src.main snapshot site/index.html
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-      - name: Deploy to GitHub Pages
-        id: deploy
-        uses: actions/deploy-pages@v4
-
       # Boucle de surveillance : check toutes les ~90 s pendant ~25 min.
       - name: Monitor loop
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          END=$((SECONDS + 1500))   # 25 minutes
+          END=$((SECONDS + 1320))   # 22 minutes, laisse le temps de publier le dashboard
           while [ $SECONDS -lt $END ]; do
-            python -m src.main once || true
+            python -m src.main once
             sleep 90
           done
 
@@ -105,3 +84,17 @@ jobs:
         with:
           path: data/op_finder.db
           key: op-finder-state-${{ github.run_id }}
+
+      # ---- Publication du dashboard sur GitHub Pages ----
+      # Snapshot genere apres la boucle, donc la page publiee reflete le dernier etat connu.
+      - name: Build dashboard snapshot
+        run: python -m src.main snapshot site/index.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

@@ -55,7 +55,7 @@
     header {
       position: sticky; top: 0; z-index: 50;
       display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-      height: var(--header-h); padding: 0 clamp(16px, 4vw, 32px);
+      min-height: var(--header-h); padding: 10px clamp(16px, 4vw, 32px);
       margin: 0 calc(-1 * clamp(16px, 4vw, 32px)) 4px;
       backdrop-filter: blur(16px) saturate(1.3);
       background: linear-gradient(180deg, rgba(10,13,20,0.94), rgba(10,13,20,0.72));
@@ -78,11 +78,11 @@
     .sync b { color: var(--parch-dim); font-weight: 500; }
 
     /* ---------- hero ---------- */
-    .hero { padding: clamp(28px, 5vw, 46px) 0 28px; }
+    .hero { padding: clamp(18px, 3.5vw, 34px) 0 24px; }
     .eyebrow { font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
     .hero h2 {
       font-family: "Bricolage Grotesque", sans-serif; font-weight: 700;
-      font-size: clamp(30px, 5.2vw, 52px); line-height: 1.02; letter-spacing: -0.025em;
+      font-size: clamp(28px, 4.4vw, 44px); line-height: 1.02; letter-spacing: -0.025em;
       margin: 14px 0 0; max-width: 20ch; color: var(--parch);
     }
     .hero h2 em { font-style: normal; color: var(--gold-br); }
@@ -120,18 +120,20 @@
     .search { background: var(--ink); border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px 12px; color: var(--parch); font-family: inherit; font-size: 13px; width: 170px; transition: border-color .2s, width .25s; }
     .search::placeholder { color: var(--muted); }
     .search:focus { outline: none; border-color: var(--gold); width: 210px; }
+    .sort { background: var(--ink); border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px 10px; color: var(--parch); font: 13px "Hanken Grotesk", system-ui, sans-serif; }
+    .sort:focus { outline: none; border-color: var(--gold); }
     .seg { display: inline-flex; background: var(--ink); border: 1px solid var(--line-soft); border-radius: 10px; padding: 3px; }
     .seg button { font-family: inherit; font-size: 12px; font-weight: 600; color: var(--muted); background: none; border: 0; padding: 6px 12px; border-radius: 7px; cursor: pointer; transition: .18s; white-space: nowrap; }
     .seg button:hover { color: var(--parch); }
     .seg button.active { background: var(--gold); color: #1c1206; }
 
-    /* table */
-    .tbl-scroll { max-height: calc(100vh - 230px); min-height: 460px; overflow-y: auto; overflow-x: hidden; }
-    .tbl-scroll::-webkit-scrollbar { width: 10px; }
-    .tbl-scroll::-webkit-scrollbar-thumb { background: rgba(224,173,90,0.2); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+    /* table : flux de page (pas de scroll interne) -> on voit tous les produits
+       en faisant defiler la page ; l'en-tete de colonnes colle sous le header. */
+    .panel.flow { overflow: visible; }
+    .tbl-scroll { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
     thead th {
-      position: sticky; top: 0; z-index: 3; text-align: left;
+      position: sticky; top: var(--header-h); z-index: 3; text-align: left;
       font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; color: var(--muted);
       padding: 13px 22px; background: #0c121d; border-bottom: 1px solid var(--line); backdrop-filter: blur(4px);
     }
@@ -154,6 +156,8 @@
     .pill::before { content:""; width: 6px; height: 6px; border-radius: 50%; }
     .pill.av { color: var(--sea); background: var(--sea-dim); } .pill.av::before { background: var(--sea); }
     .pill.un { color: var(--rust); background: var(--rust-dim); } .pill.un::before { background: var(--rust); }
+    .pill.maybe { color: var(--gold-br); background: rgba(224,173,90,0.14); } .pill.maybe::before { background: var(--gold); }
+    .source-note { display: block; margin-top: 5px; color: var(--muted); font-size: 10.5px; }
     .when { font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
     .empty { padding: 48px 22px; text-align: center; color: var(--muted); }
     .empty code { font-family: "JetBrains Mono", monospace; color: var(--gold); background: var(--ink); padding: 3px 8px; border-radius: 6px; }
@@ -174,10 +178,14 @@
     .ev.new .kind { color: var(--sea); } .ev.restock .kind { color: var(--gold-br); }
     .ev .t { font-size: 12.5px; color: var(--parch); margin: 3px 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .ev .meta { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--muted); }
+    .mini-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 12px 22px 2px; }
+    .mini { border: 1px solid var(--line-soft); background: rgba(10,13,20,0.35); border-radius: 8px; padding: 8px 9px; }
+    .mini b { display: block; font-family: "JetBrains Mono", monospace; font-size: 14px; color: var(--parch); }
+    .mini span { display: block; margin-top: 2px; font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); }
     .health { max-height: 340px; overflow-y: auto; padding: 4px 0; }
     .hrow { display: flex; align-items: center; gap: 10px; padding: 9px 22px; font-size: 12.5px; }
     .hrow .ico { flex: none; width: 7px; height: 7px; border-radius: 50%; }
-    .hrow.ok .ico { background: var(--sea); } .hrow.ko .ico { background: var(--rust); }
+    .hrow.ok .ico { background: var(--sea); } .hrow.ko .ico { background: var(--rust); } .hrow.wait .ico { background: var(--muted); }
     .hrow .nm { color: var(--parch-dim); } .hrow .it { margin-left: auto; font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--muted); }
 
     footer { margin-top: 44px; text-align: center; color: var(--muted); font-size: 12px; }
@@ -198,6 +206,7 @@
     @media (max-width: 600px) {
       .toolbar { width: 100%; margin: 8px 0 0; }
       .search { flex: 1; width: auto; } .search:focus { width: auto; }
+      .sort { flex: 1; min-width: 150px; }
       thead { display: none; }
       table, tbody, tr, td { display: block; width: 100%; }
       tbody tr { padding: 14px 18px; border-bottom: 1px solid var(--line-soft); position: relative; }
@@ -256,7 +265,7 @@
         <div class="stat">
           <div class="k">En stock</div>
           <div class="v sea">{{ stats.available }}</div>
-          <div class="sub">{{ stats.total - stats.available }} en rupture</div>
+          <div class="sub">{{ stats.available_inferred }} statuts inférés</div>
         </div>
         <div class="stat">
           <div class="k">Sondes actives</div>
@@ -268,7 +277,7 @@
 
     <div class="grid">
       <main>
-        <div class="panel">
+        <div class="panel flow">
           <div class="panel-head">
             <h3>Butin repéré</h3>
             <span class="count" id="shown">{{ products|length }}</span>
@@ -277,7 +286,13 @@
                 <button class="active" data-f="all">Tout</button>
                 <button data-f="hot">🔥 HOT</button>
                 <button data-f="av">En stock</button>
+                <button data-f="maybe">Inféré</button>
               </div>
+              <select class="sort" id="sort" aria-label="Trier les produits">
+                <option value="change">Maj récente</option>
+                <option value="site">Boutique</option>
+                <option value="price">Prix croissant</option>
+              </select>
               <input class="search" id="q" type="search" placeholder="Rechercher…" autocomplete="off">
             </div>
           </div>
@@ -297,6 +312,10 @@
                 <tr class="prow {% if p.hot %}row--hot{% endif %}"
                     data-hot="{{ 1 if p.hot else 0 }}"
                     data-av="{{ 1 if p.available else 0 }}"
+                    data-source="{{ p.stock_source }}"
+                    data-price="{{ p.price|cleanprice if p.price else '' }}"
+                    data-change="{{ p.last_change }}"
+                    data-site="{{ p.site|lower }}"
                     data-s="{{ (p.title ~ ' ' ~ p.site)|lower }}">
                   <td data-label="Boutique"><span class="site-chip">{{ p.site }}</span></td>
                   <td class="cell-title" data-label="Produit">
@@ -309,7 +328,8 @@
                     {% else %}<span class="price none">—</span>{% endif %}
                   </td>
                   <td data-label="État">
-                    {% if p.available %}<span class="pill av">En stock</span>
+                    {% if p.available and p.stock_source == 'confirmed' %}<span class="pill av">En stock</span>
+                    {% elif p.available %}<span class="pill maybe">Probable</span><span class="source-note">déduit du listing</span>
                     {% else %}<span class="pill un">Rupture</span>{% endif %}
                   </td>
                   <td class="num when" data-label="Maj">{{ p.last_change[5:16].replace('T',' ') }}</td>
@@ -329,6 +349,11 @@
           <div class="panel-head">
             <h3>Signaux</h3>
             <span class="count">{{ alerts|length }} récents</span>
+          </div>
+          <div class="mini-stats">
+            <div class="mini"><b>{{ stats.alert_counts.new }}</b><span>Nouveaux</span></div>
+            <div class="mini"><b>{{ stats.alert_counts.restock }}</b><span>Restocks</span></div>
+            <div class="mini"><b>{{ stats.alert_counts.price_change }}</b><span>Prix</span></div>
           </div>
           <div class="feed">
             {% for a in alerts %}
@@ -352,11 +377,11 @@
             <span class="count">{{ stats.checks_ok }}/{{ stats.checks_total }}</span>
           </div>
           <div class="health">
-            {% for c in checks %}
-            <div class="hrow {{ 'ok' if c.ok else 'ko' }}">
+            {% for c in health if c.enabled %}
+            <div class="hrow {{ 'ok' if c.ok else ('ko' if c.ok == false else 'wait') }}">
               <span class="ico"></span>
-              <span class="nm">{{ c.site }}</span>
-              <span class="it">{{ c['items'] }} obj · {{ c.ran_at[11:16] }}</span>
+              <span class="nm">{{ c.name }}</span>
+              <span class="it">{{ c.items }} obj · {{ c.ran_at[11:16] if c.ran_at else 'jamais' }}</span>
             </div>
             {% else %}
             <div class="empty">Aucune sonde exécutée.</div>
@@ -373,9 +398,28 @@
     const rows = [...document.querySelectorAll('.prow')];
     const q = document.getElementById('q');
     const seg = document.getElementById('seg');
+    const sort = document.getElementById('sort');
     const shown = document.getElementById('shown');
     const noresult = document.getElementById('noresult');
     let filter = 'all';
+
+    function priceValue(row) {
+      const raw = row.dataset.price || '';
+      const match = raw.replace(/\s/g, '').replace(',', '.').match(/\d+(\.\d+)?/);
+      return match ? Number(match[0]) : Number.POSITIVE_INFINITY;
+    }
+
+    function sortRows() {
+      const tbody = document.querySelector('#ptable tbody');
+      if (!tbody) return;
+      const mode = sort?.value || 'change';
+      const ordered = [...rows].sort((a, b) => {
+        if (mode === 'site') return a.dataset.site.localeCompare(b.dataset.site);
+        if (mode === 'price') return priceValue(a) - priceValue(b);
+        return (b.dataset.change || '').localeCompare(a.dataset.change || '');
+      });
+      ordered.forEach(row => tbody.appendChild(row));
+    }
 
     function apply() {
       const term = (q?.value || '').trim().toLowerCase();
@@ -383,7 +427,8 @@
       rows.forEach(r => {
         const okF = filter === 'all'
           || (filter === 'hot' && r.dataset.hot === '1')
-          || (filter === 'av'  && r.dataset.av  === '1');
+          || (filter === 'av'  && r.dataset.av  === '1')
+          || (filter === 'maybe' && r.dataset.source === 'inferred');
         const okQ = !term || r.dataset.s.includes(term);
         const vis = okF && okQ;
         r.style.display = vis ? '' : 'none';
@@ -398,6 +443,8 @@
       seg.querySelectorAll('button').forEach(x => x.classList.remove('active'));
       b.classList.add('active'); filter = b.dataset.f; apply();
     });
+    sort?.addEventListener('change', () => { sortRows(); apply(); });
+    sortRows();
 
     const ls = document.getElementById('lastsync');
     const iso = ls?.dataset.iso;

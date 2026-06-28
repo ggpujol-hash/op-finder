@@ -50,14 +50,22 @@ def run_site_check(site: SiteConfig, cfg: AppConfig, notifier: TelegramNotifier,
         log.error("%s : echec du check — %s", site.name, e)
         db.log_check(conn, site.name, ok=False, items=0, message=str(e))
         conn.commit()
-        return 0
+        return -1
     finally:
         conn.close()
 
 
 def run_once(cfg: AppConfig, notifier: TelegramNotifier, seed: bool = False) -> None:
+    active = 0
+    failed = 0
     for site in cfg.sites:
-        run_site_check(site, cfg, notifier, seed=seed)
+        if not site.enabled:
+            continue
+        active += 1
+        if run_site_check(site, cfg, notifier, seed=seed) < 0:
+            failed += 1
+    if active and failed == active:
+        raise RuntimeError("Tous les sites actifs ont echoue pendant ce passage")
     # Nettoie les produits plus vus depuis longtemps (langues exclues, retraits...).
     removed = db.prune_stale(days=2.0)
     if removed:

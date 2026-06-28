@@ -3,6 +3,18 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from urllib.parse import urlsplit, urlunsplit
+
+
+def normalize_product_url(url: str) -> str:
+    """Return a stable product URL for deduplication and display."""
+    if not url:
+        return ""
+    parts = urlsplit(url.strip())
+    scheme = parts.scheme.lower()
+    netloc = parts.netloc.lower()
+    path = parts.path.rstrip("/") or "/"
+    return urlunsplit((scheme, netloc, path, "", ""))
 
 
 @dataclass
@@ -22,7 +34,7 @@ class ProductState:
     @property
     def key(self) -> str:
         """Identifiant stable d'un produit : site + url (fallback titre)."""
-        basis = f"{self.site}|{self.url or self.title}".lower()
+        basis = f"{self.site}|{normalize_product_url(self.url) or self.title}".lower()
         return hashlib.sha1(basis.encode("utf-8")).hexdigest()[:16]
 
 

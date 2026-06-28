@@ -14,7 +14,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 
 from ..config import SiteConfig
-from ..models import ProductState
+from ..models import ProductState, normalize_product_url
 from .base import Adapter
 
 
@@ -88,7 +88,7 @@ def parse_products(html: str, site: SiteConfig) -> list[ProductState]:
         if not title or not href:
             continue
 
-        url = urljoin(site.base_url or site.url, href)
+        url = normalize_product_url(urljoin(site.base_url or site.url, href))
         if url in seen_urls:
             continue
         seen_urls.add(url)

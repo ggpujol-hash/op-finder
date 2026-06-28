@@ -42,30 +42,61 @@ def _startup() -> None:
 def build_context() -> dict:
     """Construit le contexte du dashboard (reutilise par la route et le snapshot statique)."""
     cfg = load_config()
+    site_cfg = {s.name: s for s in cfg.sites}
     sites = [
         {"name": s.name, "enabled": s.enabled, "url": s.url,
-         "interval": s.interval_seconds, "type": s.type}
+         "interval": s.interval_seconds, "type": s.type,
+         "stock_source": "confirmed" if s.in_stock_selector else "inferred"}
         for s in cfg.sites
     ]
     products = [dict(r) for r in db.recent_products(300)]
     alerts = [dict(r) for r in db.recent_alerts(50)]
     checks = [dict(r) for r in db.recent_checks(40)]
 
+    for p in products:
+        site = site_cfg.get(p["site"])
+        p["stock_source"] = "confirmed" if site and site.in_stock_selector else "inferred"
+
+    latest_checks: dict[str, dict] = {}
+    for check in checks:
+        latest_checks.setdefault(check["site"], check)
+
+    health = []
+    for site in sites:
+        check = latest_checks.get(site["name"])
+        health.append({
+            **site,
+            "ok": bool(check["ok"]) if check else None,
+            "items": check["items"] if check else 0,
+            "message": check["message"] if check else "jamais",
+            "ran_at": check["ran_at"] if check else None,
+        })
+
+    alert_counts = {
+        "new": sum(1 for a in alerts if a["kind"] == "new"),
+        "restock": sum(1 for a in alerts if a["kind"] == "restock"),
+        "price_change": sum(1 for a in alerts if a["kind"] == "price_change"),
+    }
+
     sites_with_data = {p["site"] for p in products}
     stats = {
         "total": len(products),
         "hot": sum(1 for p in products if p["hot"]),
         "available": sum(1 for p in products if p["available"]),
+        "available_inferred": sum(
+            1 for p in products if p["available"] and p["stock_source"] == "inferred"
+        ),
         "sites_active": sum(1 for s in sites if s["enabled"]),
         "sites_total": len(sites),
         "sites_live": len(sites_with_data),
         "alerts": len(alerts),
+        "alert_counts": alert_counts,
         "last_check": checks[0]["ran_at"] if checks else None,
         "checks_ok": sum(1 for c in checks if c["ok"]),
         "checks_total": len(checks),
     }
     return {
-        "products": products, "alerts": alerts, "checks": checks,
+        "products": products, "alerts": alerts, "checks": checks, "health": health,
         "sites": sites, "stats": stats,
         "telegram_ok": bool(cfg.telegram_token and cfg.telegram_chat_id),
     }

@@ -1,0 +1,321 @@
+# Configuration des sites a surveiller.
+#
+# Chaque entree = un "adapter". Le type "generic_html" couvre la plupart des
+# boutiques JCC : on charge une page (recherche/categorie), on selectionne les
+# fiches produit via CSS, et on extrait titre / url / prix / disponibilite.
+#
+# Pour trouver les bons selecteurs sur un site, utilise :
+#     python -m src.main probe "<URL>"
+# qui affiche la structure de la page pour t'aider a reperer item_selector.
+#
+# Mots-cles de recherche : on cible One Piece + le set OP-17 (sortie aout 2026).
+
+defaults:
+  # Filtre global : un produit n'est retenu que si son titre matche un de ces
+  # mots-cles (insensible a la casse). Mets une liste vide pour tout garder.
+  keywords:
+    - "one piece"
+  # Sous-filtre prioritaire : si rempli, on tague "HOT" les produits qui matchent
+  # (ex: le set qui t'interesse). N'exclut rien, sert juste a prioriser l'alerte.
+  hot_keywords:
+    - "op-17"
+    - "op17"
+    - "display"
+    - "booster box"
+
+sites:
+  # Selecteurs VERIFIES sur la page categorie One Piece (juin 2026).
+  # On vise la categorie plutot que la recherche : la recherche Philibert
+  # redirige les bots vers l'accueil.
+  - name: "Philibert"
+    type: generic_html
+    enabled: true
+    url: "https://www.philibertnet.com/fr/15860-one-piece-le-jeu-de-cartes"
+    base_url: "https://www.philibertnet.com"
+    interval_seconds: 180
+    selectors:
+      item: "div.product-card"
+      title: ".product-card__title"
+      link: ".product-card__title"
+      price: ".product-card__price"
+    out_of_stock_markers:
+      - "rupture"
+      - "indisponible"
+      - "epuise"
+      - "bientot disponible"
+    # Le bouton "Ajouter au panier" n'est present que si le produit est en stock.
+    in_stock_selector: "a[data-action=add]"
+
+  # Selecteurs VERIFIES sur la page categorie One Piece (juin 2026).
+  - name: "UltraJeux"
+    type: generic_html
+    enabled: true
+    url: "https://www.ultrajeux.com/jeu-1031-one-piece-card-game.html"
+    base_url: "https://www.ultrajeux.com/"
+    interval_seconds: 180
+    selectors:
+      item: "div.block_produit"
+      title: "p.titre a"
+      link: "p.titre a"
+      price: "p.prix span.prix, .prix"
+    out_of_stock_markers:
+      - "rupture"
+      - "indisponible"
+      - "epuise"
+      - "nous attendons"
+
+  # Magic Bazar redirige desormais vers Play-In : catalogue rendu en JavaScript.
+  # -> adapter playwright_html (navigateur headless). Selecteurs VERIFIES (juin 2026).
+  - name: "Play-In"
+    type: playwright_html
+    enabled: true
+    url: "https://www.play-in.com/fr/gamme/24/one-piece/catalogue"
+    base_url: "https://www.play-in.com"
+    interval_seconds: 300
+    wait_for: "li.tile--type_catalogItem"
+    wait_ms: 3000
+    scroll: true
+    selectors:
+      item: "li.tile--type_catalogItem"
+      title: "a[href*='/produit/']"
+      link: "a[href*='/produit/']"
+      price: ".text--variant_price"
+    out_of_stock_markers:
+      - "rupture"
+      - "indisponible"
+      - "epuise"
+
+  # Ludikbazar : URL de categorie One Piece a confirmer (la recherche renvoie 404).
+  # A caler avec `python -m src.main probe "<URL>"`. Desactive en attendant.
+  - name: "Ludikbazar"
+    type: generic_html
+    enabled: false
+    url: "https://ludikbazar.com/"
+    base_url: "https://ludikbazar.com"
+    interval_seconds: 180
+    selectors:
+      item: "li.product-item, .product-item-info"
+      title: ".product-item-link"
+      link: ".product-item-link"
+      price: ".price"
+    out_of_stock_markers:
+      - "rupture"
+      - "indisponible"
+      - "epuise"
+
+  # Cardmarket : protege par un challenge Cloudflare ("Just a moment...") qui
+  # bloque meme Chromium headless + playwright-stealth. Pour le passer il faudrait
+  # FlareSolverr, une API de scraping (ScrapingBee/Zyte) ou un Chromium non-headless
+  # sur un vrai display. Hors scope pour l'instant -> desactive.
+  # Note : Cardmarket est une marketplace de revendeurs, moins prioritaire que les
+  # boutiques pour reperer les *mises en ligne / precommandes* de displays.
+  - name: "Cardmarket"
+    type: playwright_html
+    enabled: false
+    url: "https://www.cardmarket.com/en/OnePiece/Products/Booster-Boxes"
+    base_url: "https://www.cardmarket.com"
+    interval_seconds: 600
+    wait_for: "#productRow, .table-body"
+    wait_ms: 4000
+    selectors:
+      item: "[id^=productRow], .table-body > div"
+      title: "a"
+      link: "a"
+      price: ".color-primary, .price"
+    out_of_stock_markers:
+      - "out of stock"
+      - "sold out"
+
+  # =====================================================================
+  # Boutiques ajoutees (selecteurs sondes en juin 2026)
+  # =====================================================================
+
+  # --- WooCommerce standard ---
+  - name: "Ludotrotter"
+    type: generic_html
+    enabled: true
+    url: "https://ludotrotter.fr/categorie-produit/magasin/cartes/one-piece/"
+    base_url: "https://ludotrotter.fr"
+    interval_seconds: 180
+    selectors:
+      item: "li.product"
+      title: ".woocommerce-loop-product__title"
+      link: "a.woocommerce-LoopProduct-link, a.woocommerce-loop-product__link, a"
+      price: ".price"
+    out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
+
+  - name: "Comptoir des Ecoliers"
+    type: generic_html
+    enabled: true
+    url: "https://comptoirdesecoliers.com/index.php/product-category/cartes-a-collectionner-2/carte-one-piece/"
+    base_url: "https://comptoirdesecoliers.com"
+    interval_seconds: 180
+    selectors:
+      item: "li.product"
+      title: ".woocommerce-loop-product__title"
+      link: "a.woocommerce-LoopProduct-link, a"
+      price: ".price"
+    out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
+
+  # WooCommerce rendu via Elementor (theme custom).
+  - name: "Maxi Reves"
+    type: generic_html
+    enabled: true
+    url: "https://maxireves.fr/selection-jeux/jeux-de-cartes-tcg/one-piece-tcg/"
+    base_url: "https://maxireves.fr"
+    interval_seconds: 180
+    selectors:
+      item: "div.pdtCard"
+      title: "h2.product_title"
+      link: "a[href*='/produit/']"
+      price: ".woocommerce-Price-amount, .amount"
+    out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
+
+  # --- Shopify ---
+  - name: "Games Avenue (Displays)"
+    type: generic_html
+    enabled: true
+    url: "https://gamesavenue.fr/collections/display-one-piece"
+    base_url: "https://gamesavenue.fr"
+    interval_seconds: 180
+    selectors:
+      item: ".grid__item, li.grid__item, .card"
+      title: ".card__heading a, .full-unstyled-link, h3 a"
+      link: ".card__heading a, .full-unstyled-link, a"
+      price: ".price__regular .money, .price-item--regular, .price, .money"
+    out_of_stock_markers: ["épuisé", "epuise", "sold out", "rupture"]
+
+  - name: "Games Avenue (Packs EN)"
+    type: generic_html
+    enabled: true
+    url: "https://gamesavenue.fr/collections/coffret-pack-anglais"
+    base_url: "https://gamesavenue.fr"
+    interval_seconds: 180
+    selectors:
+      item: ".grid__item, li.grid__item, .card"
+      title: ".card__heading a, .full-unstyled-link, h3 a"
+      link: ".card__heading a, .full-unstyled-link, a"
+      price: ".price__regular .money, .price-item--regular, .price, .money"
+    out_of_stock_markers: ["épuisé", "epuise", "sold out", "rupture"]
+
+  # --- PrestaShop ---
+  - name: "Fantastik"
+    type: generic_html
+    enabled: true
+    url: "https://fantastik.fr/944-cartes-one-piece"
+    base_url: "https://fantastik.fr"
+    interval_seconds: 180
+    selectors:
+      item: "article.product-miniature"
+      title: ".product-miniature__infos a, .product-title a, h2 a, h3 a"
+      link: "a.product-miniature__link"
+      price: ".product-miniature__prices, .price"
+    out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
+
+  # Ancien theme PrestaShop.
+  - name: "Goupiya"
+    type: generic_html
+    enabled: true
+    url: "https://www.goupiya.com/fr/40222-one-piece"
+    base_url: "https://www.goupiya.com"
+    interval_seconds: 180
+    selectors:
+      item: "div.product-container"
+      title: "a.product-name"
+      link: "a.product-name"
+      price: "span.price.product-price"
+    out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
+
+  # --- Themes maison ---
+  # Fantasy Sphere et Destock TCG partagent le meme moteur (.product-item-info).
+  - name: "Fantasy Sphere"
+    type: generic_html
+    enabled: true
+    url: "https://www.fantasysphere.net/jeux-de-cartes-a-collectionner/one-piece-tcg/"
+    base_url: "https://www.fantasysphere.net"
+    interval_seconds: 180
+    selectors:
+      item: "div.product-item-info"
+      title: ".product-item-name a"
+      link: ".product-item-name a"
+      price: ".product-item-price.promo, .product-item-price"
+    out_of_stock_markers: ["réassort", "reassort", "rupture", "epuise", "épuisé", "indisponible"]
+
+  - name: "Destock TCG"
+    type: generic_html
+    enabled: true
+    url: "https://www.destocktcg.fr/jeux-de-cartes-a-collectionner/one-piece-card-game/"
+    base_url: "https://www.destocktcg.fr"
+    interval_seconds: 180
+    selectors:
+      item: "div.product-item-info"
+      title: ".product-item-name a"
+      link: ".product-item-name a"
+      price: ".product-item-price.promo, .product-item-price"
+    out_of_stock_markers: ["réassort", "reassort", "rupture", "epuise", "épuisé", "indisponible"]
+
+  - name: "Antre Temps"
+    type: generic_html
+    enabled: true
+    url: "https://www.antretemps.com/jeux-de-cartes/one-piece-c899.html"
+    base_url: "https://www.antretemps.com"
+    interval_seconds: 180
+    selectors:
+      item: "div.product_box"
+      title: "h3.bp_designation"
+      link: ".bp_image a, a"
+      price: ".bp_prix"
+    out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
+
+  # --- Sites JavaScript ---
+  # Parkage = app React/Material-UI : les classes CSS sont hachees (css-xxx) et
+  # instables, mais les URLs produit suivent un motif stable. On cible donc
+  # directement les liens produit, et ":self" lit le texte/href du lien lui-meme.
+  # Pas de prix fiable (DOM MUI) -> on detecte surtout les apparitions de produits.
+  - name: "Parkage"
+    type: playwright_html
+    enabled: true
+    url: "https://www.parkage.com/fr/one-piece-card-game"
+    base_url: "https://www.parkage.com"
+    interval_seconds: 300
+    wait_for: "a[href*='one-piece-card-game-']"
+    wait_ms: 3500
+    scroll: true
+    selectors:
+      item: "a[href*='one-piece-card-game-']"
+      title: ":self"
+      link: ":self"
+    out_of_stock_markers: ["rupture", "indisponible", "épuisé"]
+
+  # tcgame.fr : site Wix. Les classes produit sont hachees (itemShared<NNN>) et
+  # changent a chaque redeploiement -> selecteurs non fiables. Desactive : a
+  # reconfigurer ponctuellement via `probe` si besoin, ou via l'API Wix interne.
+  - name: "TCGame"
+    type: playwright_html
+    enabled: false
+    url: "https://www.tcgame.fr/category/one-piece"
+    base_url: "https://www.tcgame.fr"
+    interval_seconds: 300
+    wait_ms: 4000
+    scroll: true
+    selectors:
+      item: "div[class*=rootContainer]"
+      title: "a"
+      link: "a"
+    out_of_stock_markers: ["rupture", "indisponible", "épuisé"]
+
+  # guizettefamily.com : protege par Cloudflare ("Un instant…"), bloque meme via
+  # navigateur headless. Necessite FlareSolverr ou une API de scraping. Desactive.
+  - name: "Guizette Family"
+    type: playwright_html
+    enabled: false
+    url: "https://www.guizettefamily.com/categorie/one-piece/"
+    base_url: "https://www.guizettefamily.com"
+    interval_seconds: 600
+    wait_for: "li.product"
+    selectors:
+      item: "li.product"
+      title: ".woocommerce-loop-product__title"
+      link: "a"
+      price: ".price"
+    out_of_stock_markers: ["rupture", "épuisé", "indisponible"]

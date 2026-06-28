@@ -1,0 +1,110 @@
+# 🏴‍☠️ OP Finder — Alerteur de displays One Piece TCG
+
+Surveille les boutiques JCC (Philibert, UltraJeux, Magic Bazar, Ludikbazar,
+Cardmarket…) et envoie une **alerte Telegram** dès qu'un display ou une
+précommande One Piece (set OP-17, sortie août 2026) apparaît ou revient en stock.
+
+## Architecture
+
+```
+Scheduler (APScheduler)  ──>  Adapters (1 par site, config CSS)  ──>  Detector (diff)
+                                                                          │
+Dashboard (FastAPI) <── SQLite (état + alertes + santé) <── Notifier (Telegram)
+```
+
+- **Adapters pilotés par config** : ajouter un site = quelques lignes dans `config.yaml`,
+  pas de code. Deux types disponibles :
+  - `generic_html` : boutiques en HTML server-rendered (rapide, httpx + BeautifulSoup).
+  - `playwright_html` : sites rendus en JavaScript (navigateur headless Chromium).
+    Mêmes sélecteurs CSS que `generic_html`, avec en plus `wait_for`, `wait_ms`, `scroll`.
+- **Anti-spam** : on ne notifie que les *transitions* (apparition, retour en stock,
+  changement de prix), jamais l'état stable.
+- **Robustesse** : chaque site est isolé — un site cassé n'arrête pas les autres.
+
+## Installation
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env       # puis remplis le token Telegram
+
+# Pour les sites en JavaScript (Play-In) : installer le navigateur Playwright
+python -m playwright install chromium
+```
+
+### Configurer Telegram
+1. Sur Telegram, parle à **@BotFather** → `/newbot` → récupère le **token**.
+2. Envoie un message à ton bot, puis ouvre
+   `https://api.telegram.org/bot<TOKEN>/getUpdates` et lis le `chat.id`.
+3. Mets `TELEGRAM_BOT_TOKEN` et `TELEGRAM_CHAT_ID` dans `.env`.
+4. Teste : `python -m src.main test`
+
+## Utilisation
+
+```bash
+python -m src.main once          # un passage sur tous les sites (pour tester)
+python -m src.main run           # monitoring en continu (toutes les ~3 min)
+python -m src.main test          # message Telegram de test
+python -m src.main probe "<URL>" # inspecte une page pour caler les sélecteurs CSS
+```
+
+### Dashboard
+```bash
+uvicorn src.dashboard.app:app --port 8000
+# puis http://localhost:8000
+```
+
+## Caler les sélecteurs d'un site
+
+Les sélecteurs CSS dans `config.yaml` sont des points de départ et **doivent être
+vérifiés** contre le HTML réel de chaque site (les structures changent souvent) :
+
+```bash
+python -m src.main probe "https://www.philibertnet.com/fr/recherche?s=one+piece"
+```
+
+La commande liste les blocs HTML répétés (candidats `item`) et les liens produit.
+Ajuste ensuite `selectors.item / title / link / price` dans `config.yaml`.
+
+## Déploiement 24/7
+
+Un petit VPS (Hetzner ~4 €/mois) ou un Raspberry Pi suffit. Lance `python -m src.main run`
+sous `systemd` ou `tmux`, et le dashboard derrière nginx si tu veux y accéder à distance.
+
+## État des sites (vérifié juin 2026)
+
+**14 sites actifs**, ~278 produits suivis.
+
+| Site | Type | État | Note |
+|---|---|---|---|
+| Philibert | `generic_html` | ✅ actif | catégorie One Piece |
+| UltraJeux | `generic_html` | ✅ actif | catégorie One Piece |
+| Play-In (ex-Magic Bazar) | `playwright_html` | ✅ actif | catalogue JS |
+| Ludotrotter | `generic_html` | ✅ actif | WooCommerce |
+| Comptoir des Écoliers | `generic_html` | ✅ actif | WooCommerce |
+| Maxi Rêves | `generic_html` | ✅ actif | WooCommerce/Elementor |
+| Games Avenue (Displays) | `generic_html` | ✅ actif | Shopify |
+| Games Avenue (Packs EN) | `generic_html` | ✅ actif | Shopify |
+| Fantastik | `generic_html` | ✅ actif | PrestaShop |
+| Goupiya | `generic_html` | ✅ actif | PrestaShop |
+| Fantasy Sphere | `generic_html` | ✅ actif | thème maison |
+| Destock TCG | `generic_html` | ✅ actif | thème maison |
+| Antre Temps | `generic_html` | ✅ actif | thème maison |
+| Parkage | `playwright_html` | ✅ actif | React/MUI, ciblage par URL (`:self`) |
+| TCGame | `playwright_html` | ⚠️ désactivé | Wix, classes hachées instables |
+| Guizette Family | `playwright_html` | ⚠️ désactivé | Cloudflare bloque |
+| Cardmarket | `playwright_html` | ⚠️ désactivé | Cloudflare bloque |
+| Ludikbazar | `generic_html` | ⚠️ désactivé | URL catégorie à confirmer (`probe`) |
+
+## Limites connues / suite
+
+- **Cardmarket** : challenge Cloudflare ("Just a moment…") qui bloque même Chromium
+  headless + `playwright-stealth`. Pour le passer il faudrait **FlareSolverr**, une
+  **API de scraping** (ScrapingBee, Zyte) ou un Chromium **non-headless** sur un vrai
+  display. C'est une marketplace de revendeurs, moins prioritaire que les boutiques
+  pour repérer les *mises en ligne / précommandes* de displays.
+- **Généralistes (Amazon/Fnac/Cdiscount)** : même approche `playwright_html`, anti-bot
+  variable selon les sites.
+- Pas encore de notifications multi-canal (Discord, e-mail) — facile à brancher
+  à côté du `TelegramNotifier`.

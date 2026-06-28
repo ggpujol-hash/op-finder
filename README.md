@@ -50,9 +50,15 @@ python -m src.main probe "<URL>" # inspecte une page pour caler les sélecteurs 
 ```
 
 ### Dashboard
+
+**Version hébergée (gratuite, auto-mise à jour) :** https://ggpujol-hash.github.io/op-finder/
+Publiée sur GitHub Pages à chaque run du workflow (données du monitoring cloud).
+
+**Version locale** (données locales uniquement) :
 ```bash
-uvicorn src.dashboard.app:app --port 8000
-# puis http://localhost:8000
+uvicorn src.dashboard.app:app --port 8000   # puis http://localhost:8000
+# ou générer un snapshot statique :
+python -m src.main snapshot site/index.html
 ```
 
 ## Caler les sélecteurs d'un site

@@ -97,8 +97,10 @@ jobs:
 
       # Sauvegarde l'etat pour la prochaine execution (cache toujours mis a jour,
       # meme si la boucle a ete interrompue, pour ne pas re-alerter).
+      # success() volontaire (pas always()) : un run annule ne doit pas re-sauver
+      # un etat partiel/perime par-dessus le cache.
       - name: Save state
-        if: always()
+        if: success()
         uses: actions/cache/save@v4
         with:
           path: data/op_finder.db

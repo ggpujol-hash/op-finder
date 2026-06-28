@@ -58,6 +58,10 @@ def run_site_check(site: SiteConfig, cfg: AppConfig, notifier: TelegramNotifier,
 def run_once(cfg: AppConfig, notifier: TelegramNotifier, seed: bool = False) -> None:
     for site in cfg.sites:
         run_site_check(site, cfg, notifier, seed=seed)
+    # Nettoie les produits plus vus depuis longtemps (langues exclues, retraits...).
+    removed = db.prune_stale(days=2.0)
+    if removed:
+        log.info("Purge : %d produit(s) perime(s) supprime(s)", removed)
 
 
 def run_forever(cfg: AppConfig, notifier: TelegramNotifier) -> None:

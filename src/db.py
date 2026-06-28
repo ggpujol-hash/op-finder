@@ -102,6 +102,17 @@ def log_check(conn: sqlite3.Connection, site: str, ok: bool, items: int, message
     )
 
 
+def prune_stale(days: float = 2.0) -> int:
+    """Supprime les produits plus vus depuis `days` jours (ex. lignes d'une langue
+    desormais exclue, ou produits retires du catalogue). Retourne le nb supprime."""
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    with connect() as conn:
+        cur = conn.execute("DELETE FROM products WHERE last_seen < ?", (cutoff,))
+        conn.commit()
+        return cur.rowcount
+
+
 def recent_products(limit: int = 200) -> list[sqlite3.Row]:
     with connect() as conn:
         return conn.execute(

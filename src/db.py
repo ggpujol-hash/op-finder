@@ -18,7 +18,9 @@ CREATE TABLE IF NOT EXISTS products (
     url         TEXT NOT NULL,
     price       TEXT,
     available   INTEGER NOT NULL,
+    stock_status TEXT NOT NULL DEFAULT 'inferred',
     hot         INTEGER NOT NULL DEFAULT 0,
+    miss_count  INTEGER NOT NULL DEFAULT 0,
     first_seen  TEXT NOT NULL,
     last_seen   TEXT NOT NULL,
     last_change TEXT NOT NULL
@@ -52,14 +54,26 @@ def _now() -> str:
 
 def connect() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    # timeout + WAL : les checks tournent en threads paralleles (BackgroundScheduler)
+    # et se partagent la base -> evite les "database is locked".
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
 
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(products)")}
+        if "stock_status" not in cols:
+            conn.execute(
+                "ALTER TABLE products ADD COLUMN stock_status TEXT NOT NULL DEFAULT 'inferred'"
+            )
+        if "miss_count" not in cols:
+            conn.execute(
+                "ALTER TABLE products ADD COLUMN miss_count INTEGER NOT NULL DEFAULT 0"
+            )
 
 
 def get_product(conn: sqlite3.Connection, key: str) -> sqlite3.Row | None:
@@ -73,16 +87,17 @@ def upsert_product(conn: sqlite3.Connection, st: ProductState, changed: bool) ->
     if existing is None:
         conn.execute(
             """INSERT INTO products
-               (key, site, title, url, price, available, hot, first_seen, last_seen, last_change)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+               (key, site, title, url, price, available, stock_status, hot,
+                first_seen, last_seen, last_change)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
             (st.key, st.site, st.title, st.url, st.price, int(st.available),
-             int(st.hot), now, now, now),
+             st.stock_status, int(st.hot), now, now, now),
         )
     else:
         conn.execute(
-            """UPDATE products SET title=?, url=?, price=?, available=?, hot=?,
+            """UPDATE products SET title=?, url=?, price=?, available=?, stock_status=?, hot=?,
                last_seen=?, last_change=? WHERE key=?""",
-            (st.title, st.url, st.price, int(st.available), int(st.hot),
+            (st.title, st.url, st.price, int(st.available), st.stock_status, int(st.hot),
              now, now if changed else existing["last_change"], st.key),
         )
 
@@ -93,6 +108,58 @@ def log_alert(conn: sqlite3.Connection, st: ProductState, kind: str, detail: str
            VALUES (?,?,?,?,?,?,?)""",
         (st.key, st.site, st.title, st.url, kind, detail, _now()),
     )
+
+
+def last_successful_items(conn: sqlite3.Connection, site: str) -> int | None:
+    """Nb de produits du dernier check REUSSI d'un site (None si jamais reussi).
+
+    Sert a reperer une panne silencieuse : un site qui retournait N>0 et tombe a
+    0 a probablement vu ses selecteurs casser (HTTP 200 mais 0 fiche)."""
+    row = conn.execute(
+        "SELECT items FROM checks WHERE site = ? AND ok = 1 ORDER BY ran_at DESC LIMIT 1",
+        (site,),
+    ).fetchone()
+    return row["items"] if row else None
+
+
+def reconcile_missing(
+    conn: sqlite3.Connection, site: str, seen_keys: set[str], threshold: int = 3
+) -> int:
+    """Bascule en rupture les produits d'un site absents de N checks successifs.
+
+    Beaucoup de boutiques retirent les produits en rupture de la page categorie
+    (ou les renvoient au-dela de max_pages). Sans cela, ils restent available=1
+    en base : leur retour en stock ne declencherait jamais de restock. On
+    incremente un compteur d'absences (remis a 0 des qu'on les revoit) et, au seuil,
+    on les marque 'out' pour qu'un retour ulterieur soit bien detecte.
+
+    A n'appeler que sur un check REUSSI et non vide (sinon une panne de selecteurs
+    ferait basculer tout le catalogue en rupture). Retourne le nb bascule.
+    """
+    flipped = 0
+    rows = conn.execute(
+        "SELECT key, available, miss_count FROM products WHERE site = ?", (site,)
+    ).fetchall()
+    for row in rows:
+        if row["key"] in seen_keys:
+            if row["miss_count"]:
+                conn.execute(
+                    "UPDATE products SET miss_count = 0 WHERE key = ?", (row["key"],)
+                )
+            continue
+        new_miss = row["miss_count"] + 1
+        if row["available"] and new_miss >= threshold:
+            conn.execute(
+                "UPDATE products SET available = 0, stock_status = 'out', miss_count = ? "
+                "WHERE key = ?",
+                (new_miss, row["key"]),
+            )
+            flipped += 1
+        else:
+            conn.execute(
+                "UPDATE products SET miss_count = ? WHERE key = ?", (new_miss, row["key"])
+            )
+    return flipped
 
 
 def log_check(conn: sqlite3.Connection, site: str, ok: bool, items: int, message: str = "") -> None:

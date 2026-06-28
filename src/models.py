@@ -2,8 +2,31 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass
 from urllib.parse import urlsplit, urlunsplit
+
+# Montant : "119,90" / "1 199,90" / "119" (le dernier d'une chaine = prix courant
+# en cas de prix barre + promo).
+_PRICE_RE = re.compile(r"\d[\d .]*,\d{2}|\d[\d .]*\d|\d")
+
+
+def clean_price(value: str | None) -> str | None:
+    """Normalise un prix en un montant stable ("119,90 €").
+
+    Retire labels et devises heterogenes ("119,90 EUR", "à partir de 119,90 €",
+    espaces insecables) pour que la comparaison prix-a-prix ne declenche pas de
+    fausse alerte sur un simple reformatage. Garde le dernier montant (prix
+    courant quand un prix barre precede la promo). Source unique reutilisee par
+    le parsing, la detection et le dashboard.
+    """
+    if not value:
+        return None
+    v = value.replace("\xa0", " ")
+    amounts = _PRICE_RE.findall(v)
+    if amounts:
+        return amounts[-1].strip() + " €"
+    return v.strip() or None
 
 
 def normalize_product_url(url: str) -> str:
@@ -26,10 +49,17 @@ class ProductState:
     url: str
     price: str | None = None
     available: bool = True
+    stock_status: str = "inferred"  # "confirmed" | "preorder" | "inferred" | "out"
     hot: bool = False
     # Texte additionnel pour le filtrage langue (classes CSS de la fiche, etc.),
     # non persiste : sert uniquement a detecter la langue avant stockage.
     tags: str = ""
+
+    def __post_init__(self) -> None:
+        if self.stock_status == "out":
+            self.available = False
+        elif not self.available:
+            self.stock_status = "out"
 
     @property
     def key(self) -> str:

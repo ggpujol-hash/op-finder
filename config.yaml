@@ -13,13 +13,32 @@
 defaults:
   # Filtre global : un produit n'est retenu que si son titre matche un de ces
   # mots-cles (insensible a la casse). Mets une liste vide pour tout garder.
+  #
+  # IMPORTANT : sur une page de categorie deja 100% One Piece, beaucoup de titres
+  # omettent "one piece" (ex. "Display Pilier du Monde OP-09", "Booster Box EB-02").
+  # On elargit donc aux codes de set / types de produit, sinon ces displays sont
+  # droppes avant detection. Les sites dont la page melange d'autres gammes peuvent
+  # surcharger via une cle "keywords" par site.
   keywords:
     - "one piece"
+    - "op-"      # OP-09, OP-17...
+    - "op0"      # OP09 sans tiret
+    - "op1"      # OP16, OP17...
+    - "op2"
+    - "eb-"      # extra booster (EB-01, EB-02)
+    - "eb0"
+    - "prb"      # premium booster (PRB-01)
+    - "st-"      # starter deck (ST-21...)
+    - "display"
+    - "booster"
+    - "coffret"
+    - "starter"
   # Sous-filtre prioritaire : si rempli, on tague "HOT" les produits qui matchent
   # (ex: le set qui t'interesse). N'exclut rien, sert juste a prioriser l'alerte.
   hot_keywords:
     - "op-17"
     - "op17"
+    - "op 17"
     - "display"
     - "booster box"
   # Filtre de LANGUE : on ne veut que l'anglais. On retire les produits dont le
@@ -49,6 +68,14 @@ defaults:
     - "kr"
     - "cn"
     - "chn"
+  # Marqueurs des langues VOULUES. Utilises uniquement pour les sites qui declarent
+  # une `lang` par defaut exclue (ex. shop FR) : on ne garde alors que les produits
+  # explicitement tagues dans une de ces langues. Voir l'option `lang` par site.
+  include_lang_codes:
+    - "en"
+    - "eng"
+    - "english"
+    - "anglais"
 
 sites:
   # Selecteurs VERIFIES sur la page categorie One Piece (juin 2026).
@@ -328,6 +355,7 @@ sites:
       title: "h3.bp_designation"
       link: ".bp_image a, a"
       price: ".bp_prix"
+    in_stock_selector: ".articleDispo, .dispoArticle .enstock"
     out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
 
   # --- Sites JavaScript ---

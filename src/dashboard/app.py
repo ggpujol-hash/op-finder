@@ -5,7 +5,7 @@ Lancer avec :
 """
 from __future__ import annotations
 
-import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -14,24 +14,14 @@ from fastapi.templating import Jinja2Templates
 
 from .. import db
 from ..config import load_config
+from ..models import clean_price
 
 app = FastAPI(title="OP Finder")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
-
-def _cleanprice(value: str | None) -> str | None:
-    """Normalise un prix : retire les labels et, en cas de prix barre + promo,
-    garde le dernier montant (le prix courant)."""
-    if not value:
-        return None
-    v = value.replace("\xa0", " ")
-    amounts = re.findall(r"\d[\d .]*,\d{2}|\d[\d .]*\d|\d", v)
-    if amounts:
-        return amounts[-1].strip() + " €"
-    return v.strip()
-
-
-templates.env.filters["cleanprice"] = _cleanprice
+# Source unique de normalisation des prix (cf. src/models.clean_price), partagee
+# avec le parsing et la detection pour un affichage coherent.
+templates.env.filters["cleanprice"] = clean_price
 
 
 @app.on_event("startup")
@@ -49,13 +39,21 @@ def build_context() -> dict:
          "stock_source": "confirmed" if s.in_stock_selector else "inferred"}
         for s in cfg.sites
     ]
-    products = [dict(r) for r in db.recent_products(300)]
+    products = [dict(r) for r in db.recent_products(500)]
     alerts = [dict(r) for r in db.recent_alerts(50)]
     checks = [dict(r) for r in db.recent_checks(200)]
 
     for p in products:
         site = site_cfg.get(p["site"])
-        p["stock_source"] = "confirmed" if site and site.in_stock_selector else "inferred"
+        p.setdefault("stock_status", "inferred")
+        if p["stock_status"] == "confirmed":
+            p["stock_source"] = "confirmed"
+        elif p["stock_status"] == "preorder":
+            p["stock_source"] = "preorder"
+        elif p["stock_status"] == "out":
+            p["stock_source"] = "out"
+        else:
+            p["stock_source"] = "confirmed" if site and site.in_stock_selector else "inferred"
 
     latest_checks: dict[str, dict] = {}
     for check in checks:
@@ -85,6 +83,10 @@ def build_context() -> dict:
         "total": len(products),
         "hot": sum(1 for p in products if p["hot"]),
         "available": sum(1 for p in products if p["available"]),
+        "available_confirmed": sum(
+            1 for p in products if p["available"] and p["stock_source"] == "confirmed"
+        ),
+        "preorders": sum(1 for p in products if p["stock_status"] == "preorder"),
         "available_inferred": sum(
             1 for p in products if p["available"] and p["stock_source"] == "inferred"
         ),
@@ -98,6 +100,9 @@ def build_context() -> dict:
         "last_check": checks[0]["ran_at"] if checks else None,
         "checks_ok": sum(1 for c in checks if c["ok"]),
         "checks_total": len(checks),
+        # Horodatage de generation de la page (distinct de la derniere sonde) :
+        # sur GitHub Pages la page est statique et ne reflete pas le temps reel.
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     return {
         "products": products, "alerts": alerts, "checks": checks, "health": health,

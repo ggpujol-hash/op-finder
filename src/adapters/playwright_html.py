@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 
 from ..models import ProductState
-from .base import USER_AGENTS, Adapter
+from .base import Adapter
 from .generic_html import parse_products
 
 log = logging.getLogger("adapter.playwright")
@@ -29,7 +29,7 @@ class PlaywrightHtmlAdapter(Adapter):
                 args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
             )
             context = browser.new_context(
-                user_agent=USER_AGENTS[0],
+                user_agent=self.user_agent,
                 locale="fr-FR",
                 viewport={"width": 1366, "height": 900},
             )

@@ -15,7 +15,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 from bs4 import BeautifulSoup
 
 from ..config import SiteConfig
-from ..models import ProductState, normalize_product_url
+from ..models import ProductState, clean_price, normalize_product_url
 from .base import Adapter
 
 
@@ -51,20 +51,35 @@ def _select_one_href(node, selector: str | None) -> str | None:
     return None
 
 
-def _is_available(node, site: SiteConfig) -> bool:
+DEFAULT_PREORDER_MARKERS = (
+    "precommande",
+    "précommande",
+    "pre-order",
+    "pre order",
+    "preorder",
+    "reservation",
+    "réservation",
+)
+
+
+def _stock_status(node, site: SiteConfig) -> str:
+    text = node.get_text(" ", strip=True).lower()
+    preorder_markers = [*DEFAULT_PREORDER_MARKERS, *site.preorder_markers]
+    if any(marker in text for marker in preorder_markers):
+        return "preorder"
+
     # 1. Si on a declare a quoi ressemble "en stock" (bouton panier), ce signal
     #    fait autorite : present -> dispo, absent -> indispo. C'est le plus fiable
     #    (ex. WooCommerce affiche "Ajouter au panier" vs "Lire la suite", et une
     #    precommande "en attente" n'a pas de bouton panier).
     if site.in_stock_selector:
-        return bool(node.select_one(site.in_stock_selector))
+        return "confirmed" if node.select_one(site.in_stock_selector) else "out"
     # 2. Sinon : indisponible si un marqueur de rupture apparait dans le texte.
-    text = node.get_text(" ", strip=True).lower()
     for marker in site.out_of_stock_markers:
         if marker in text:
-            return False
+            return "out"
     # 3. Par defaut : disponible (presence dans les resultats = en vente).
-    return True
+    return "inferred"
 
 
 def parse_products(html: str, site: SiteConfig) -> list[ProductState]:
@@ -94,13 +109,15 @@ def parse_products(html: str, site: SiteConfig) -> list[ProductState]:
             continue
         seen_urls.add(url)
 
+        stock_status = _stock_status(node, site)
         results.append(
             ProductState(
                 site=site.name,
                 title=title,
                 url=url,
-                price=_select_one_text(node, site.selectors.get("price")),
-                available=_is_available(node, site),
+                price=clean_price(_select_one_text(node, site.selectors.get("price"))),
+                available=stock_status != "out",
+                stock_status=stock_status,
                 # Classes CSS de la fiche : contiennent souvent un indice de langue
                 # (ex. WooCommerce "product_cat-...-francais").
                 tags=" ".join(node.get("class") or []),

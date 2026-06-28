@@ -3,6 +3,8 @@ __pycache__/
 *.pyc
 .env
 data/*.db
+data/*.db-shm
+data/*.db-wal
 .claude/
 .DS_Store
 site/

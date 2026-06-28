@@ -27,7 +27,13 @@ class SiteConfig:
     page_param: str = "page"
     page_style: str = "query"
     out_of_stock_markers: list[str] = field(default_factory=list)
+    preorder_markers: list[str] = field(default_factory=list)
     in_stock_selector: str | None = None
+    # Langue par defaut de la boutique (ex. "fr"). Optionnel : si renseigne ET
+    # present dans exclude_lang_codes, on ne garde de ce site QUE les produits
+    # explicitement tagues dans une langue voulue (cf. include_lang_codes) — utile
+    # pour un shop FR dont les titres anglais sont marques "ENG" mais pas les FR.
+    lang: str = ""
     # Specifiques a l'adapter playwright_html :
     wait_for: str | None = None   # selecteur CSS a attendre avant de lire la page
     wait_ms: int = 2500           # attente supplementaire (ms) apres chargement
@@ -46,6 +52,10 @@ class AppConfig:
     exclude_lang_codes: list[str]
     site_keywords: dict[str, list[str]]
     sites: list[SiteConfig]
+    # Champs optionnels (defauts) : rajoutes apres coup, places en fin pour ne pas
+    # casser les constructions par position et rester retro-compatibles.
+    include_lang_codes: list[str] = field(default_factory=list)
+    site_lang: dict[str, str] = field(default_factory=dict)
 
 
 def load_config(path: str | Path | None = None) -> AppConfig:
@@ -57,6 +67,10 @@ def load_config(path: str | Path | None = None) -> AppConfig:
     hot_keywords = [k.lower() for k in defaults.get("hot_keywords", [])]
     exclude_keywords = [k.lower() for k in defaults.get("exclude_keywords", [])]
     exclude_lang_codes = [k.lower() for k in defaults.get("exclude_lang_codes", [])]
+    include_lang_codes = [
+        k.lower()
+        for k in defaults.get("include_lang_codes", ["en", "eng", "english", "anglais"])
+    ]
 
     sites: list[SiteConfig] = []
     for s in raw.get("sites", []):
@@ -74,7 +88,9 @@ def load_config(path: str | Path | None = None) -> AppConfig:
                 page_param=s.get("page_param", "page"),
                 page_style=s.get("page_style", "query"),
                 out_of_stock_markers=[m.lower() for m in s.get("out_of_stock_markers", [])],
+                preorder_markers=[m.lower() for m in s.get("preorder_markers", [])],
                 in_stock_selector=s.get("in_stock_selector"),
+                lang=str(s.get("lang", "")).lower(),
                 wait_for=s.get("wait_for"),
                 wait_ms=int(s.get("wait_ms", 2500)),
                 scroll=s.get("scroll", False),
@@ -90,6 +106,8 @@ def load_config(path: str | Path | None = None) -> AppConfig:
         hot_keywords=hot_keywords,
         exclude_keywords=exclude_keywords,
         exclude_lang_codes=exclude_lang_codes,
+        include_lang_codes=include_lang_codes,
         site_keywords={s.name: s.keywords for s in sites if s.keywords is not None},
+        site_lang={s.name: s.lang for s in sites if s.lang},
         sites=sites,
     )

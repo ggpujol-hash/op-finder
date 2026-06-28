@@ -32,7 +32,28 @@ def run_site_check(site: SiteConfig, cfg: AppConfig, notifier: TelegramNotifier,
         adapter = build_adapter(site)
         states = adapter.collect()
         states = apply_filters(states, cfg)
+        items = len(states)
+
+        # Panne silencieuse : un site qui retournait des produits et tombe a 0
+        # (HTTP 200 mais selecteurs casses) ne doit pas rester "vert" a items=0.
+        prev_items = db.last_successful_items(conn, site.name)
+        if items == 0 and prev_items:
+            db.log_check(conn, site.name, ok=False, items=0,
+                         message=f"0 produit (precedent : {prev_items}) — selecteurs casses ?")
+            conn.commit()
+            log.warning("%s : 0 produit alors que %d au dernier check — selecteurs casses ?",
+                        site.name, prev_items)
+            return -1
+
         events = detect(conn, states)
+
+        # Marque en rupture les produits disparus du listing depuis plusieurs
+        # passages, pour qu'un futur retour declenche bien un restock. Uniquement
+        # sur un check fiable (reussi et non vide), jamais en seed.
+        if not seed and items:
+            flipped = db.reconcile_missing(conn, site.name, {st.key for st in states})
+            if flipped:
+                log.info("%s : %d produit(s) disparu(s) marque(s) en rupture", site.name, flipped)
 
         sent = 0
         if not seed:
@@ -40,11 +61,11 @@ def run_site_check(site: SiteConfig, cfg: AppConfig, notifier: TelegramNotifier,
                 if notifier.send(ev):
                     sent += 1
                 db.log_alert(conn, ev.state, ev.kind, ev.detail)
-        db.log_check(conn, site.name, ok=True, items=len(states),
+        db.log_check(conn, site.name, ok=True, items=items,
                      message=("seed" if seed else f"{len(events)} evenement(s)"))
         conn.commit()
         log.info("%s : %d produits, %d evenement(s), %d alerte(s) envoyee(s)",
-                 site.name, len(states), 0 if seed else len(events), sent)
+                 site.name, items, 0 if seed else len(events), sent)
         return len(events)
     except Exception as e:  # noqa: BLE001 — on isole chaque site
         log.error("%s : echec du check — %s", site.name, e)

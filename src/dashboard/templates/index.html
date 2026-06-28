@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Veille : on rafraichit la page toutes les 5 min (snapshot statique regenere
+       periodiquement cote CI, ou re-rendu en direct sous FastAPI). -->
+  <meta http-equiv="refresh" content="300">
   <title>OP Finder — Salle des cartes</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +22,7 @@
       --gold-br:    #f4d38d;
       --parch:      #eee6d4;
       --parch-dim:  #b9b2a0;
-      --muted:      #828ca1;
+      --muted:      #97a1b5;
       --sea:        #6fc6ab;
       --sea-dim:    rgba(111, 198, 171, 0.15);
       --rust:       #d4795a;
@@ -159,6 +162,7 @@
     .pill.av { color: var(--sea); background: var(--sea-dim); } .pill.av::before { background: var(--sea); }
     .pill.un { color: var(--rust); background: var(--rust-dim); } .pill.un::before { background: var(--rust); }
     .pill.maybe { color: var(--gold-br); background: rgba(224,173,90,0.14); } .pill.maybe::before { background: var(--gold); }
+    .pill.pre { color: #9ec8ff; background: rgba(93, 151, 224, 0.16); } .pill.pre::before { background: #9ec8ff; }
     .source-note { display: block; margin-top: 5px; color: var(--muted); font-size: 10.5px; }
     .when { font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
     .empty { padding: 48px 22px; text-align: center; color: var(--muted); }
@@ -189,6 +193,7 @@
     .hrow .ico { flex: none; width: 7px; height: 7px; border-radius: 50%; }
     .hrow.ok .ico { background: var(--sea); } .hrow.ko .ico { background: var(--rust); } .hrow.wait .ico { background: var(--muted); }
     .hrow .nm { color: var(--parch-dim); } .hrow .it { margin-left: auto; font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--muted); }
+    .hmsg { margin: -2px 22px 8px 32px; font-size: 11px; line-height: 1.4; color: var(--rust); }
 
     footer { margin-top: 44px; text-align: center; color: var(--muted); font-size: 12px; }
     footer a { color: var(--gold); }
@@ -207,6 +212,7 @@
     /* table -> cartes empilees sur mobile */
     @media (max-width: 600px) {
       .toolbar { width: 100%; margin: 8px 0 0; }
+      .seg { flex-wrap: wrap; width: 100%; }
       .search { flex: 1; width: auto; } .search:focus { width: auto; }
       .sort { flex: 1; min-width: 150px; }
       thead { display: none; }
@@ -240,6 +246,7 @@
     </div>
     <div class="header-right">
       <span class="sync">Dernière sonde · <b id="lastsync" data-iso="{{ stats.last_check or '' }}">—</b></span>
+      <span class="sync">Page · <b id="pagegen" data-iso="{{ stats.generated_at or '' }}">—</b></span>
       {% if telegram_ok %}
         <span class="status on"><span class="dot"></span>Telegram armé</span>
       {% else %}
@@ -265,9 +272,9 @@
           <div class="sub">displays · OP17 · booster box</div>
         </div>
         <div class="stat">
-          <div class="k">En stock</div>
-          <div class="v sea">{{ stats.available }}</div>
-          <div class="sub">{{ stats.available_inferred }} statuts inférés</div>
+          <div class="k">En stock confirmé</div>
+          <div class="v sea">{{ stats.available_confirmed }}</div>
+          <div class="sub">{{ stats.preorders }} précommandes · {{ stats.available_inferred }} non confirmés</div>
         </div>
         <div class="stat">
           <div class="k">Sondes actives</div>
@@ -284,11 +291,12 @@
             <h3>Butin repéré</h3>
             <span class="count" id="shown">{{ products|length }}</span>
             <div class="toolbar">
-              <div class="seg" id="seg">
-                <button class="active" data-f="all">Tout</button>
-                <button data-f="hot">🔥 HOT</button>
-                <button data-f="av">En stock</button>
-                <button data-f="maybe">Inféré</button>
+              <div class="seg" id="seg" role="group" aria-label="Filtrer les produits">
+                <button class="active" data-f="all" aria-pressed="true">Tout</button>
+                <button data-f="hot" aria-pressed="false">🔥 HOT</button>
+                <button data-f="av" aria-pressed="false">En stock</button>
+                <button data-f="preorder" aria-pressed="false">Préco</button>
+                <button data-f="maybe" aria-pressed="false">Non confirmé</button>
               </div>
               <select class="sort" id="sort" aria-label="Trier les produits">
                 <option value="change">Maj récente</option>
@@ -315,6 +323,7 @@
                     data-hot="{{ 1 if p.hot else 0 }}"
                     data-av="{{ 1 if p.available else 0 }}"
                     data-source="{{ p.stock_source }}"
+                    data-status="{{ p.stock_status }}"
                     data-price="{{ p.price|cleanprice if p.price else '' }}"
                     data-change="{{ p.last_change }}"
                     data-site="{{ p.site|lower }}"
@@ -330,11 +339,12 @@
                     {% else %}<span class="price none">—</span>{% endif %}
                   </td>
                   <td data-label="État">
-                    {% if p.available and p.stock_source == 'confirmed' %}<span class="pill av">En stock</span>
-                    {% elif p.available %}<span class="pill maybe">Probable</span><span class="source-note">déduit du listing</span>
+                    {% if p.stock_status == 'preorder' %}<span class="pill pre">Précommande</span><span class="source-note">détectée dans le listing</span>
+                    {% elif p.available and p.stock_source == 'confirmed' %}<span class="pill av">En stock</span>
+                    {% elif p.available %}<span class="pill maybe">Non confirmé</span><span class="source-note">aucun marqueur de rupture</span>
                     {% else %}<span class="pill un">Rupture</span>{% endif %}
                   </td>
-                  <td class="num when" data-label="Maj">{{ p.last_change[5:16].replace('T',' ') }}</td>
+                  <td class="num when" data-label="Maj"><time class="lt" data-iso="{{ p.last_change }}">{{ p.last_change[5:16].replace('T',' ') }}</time></td>
                 </tr>
                 {% else %}
                 <tr><td class="empty">Aucun produit encore. Lance une sonde : <code>python -m src.main once</code></td></tr>
@@ -364,7 +374,7 @@
               <div class="body">
                 <div class="kind">{{ {'new':'Nouveau','restock':'Restock','price_change':'Prix'}.get(a.kind, a.kind) }}</div>
                 <a class="t" href="{{ a.url }}" target="_blank" rel="noopener">{{ a.title }}</a>
-                <div class="meta">{{ a.site }} · {{ a.sent_at[5:16].replace('T',' ') }}</div>
+                <div class="meta">{{ a.site }} · <time class="lt" data-iso="{{ a.sent_at }}">{{ a.sent_at[5:16].replace('T',' ') }}</time></div>
               </div>
             </div>
             {% else %}
@@ -380,11 +390,13 @@
           </div>
           <div class="health">
             {% for c in health if c.enabled %}
-            <div class="hrow {{ 'ok' if c.ok else ('ko' if c.ok == false else 'wait') }}">
+            <div class="hrow {{ 'ok' if c.ok else ('ko' if c.ok == false else 'wait') }}"
+                 title="{{ c.message }}">
               <span class="ico"></span>
               <span class="nm">{{ c.name }}</span>
-              <span class="it">{{ c.items }} obj · {{ c.ran_at[11:16] if c.ran_at else 'jamais' }}</span>
+              <span class="it">{{ c.items }} obj · {% if c.ran_at %}<time class="lt" data-iso="{{ c.ran_at }}" data-fmt="time">{{ c.ran_at[11:16] }}</time>{% else %}jamais{% endif %}</span>
             </div>
+            {% if c.ok == false and c.message %}<div class="hmsg">{{ c.message }}</div>{% endif %}
             {% else %}
             <div class="empty">Aucune sonde exécutée.</div>
             {% endfor %}
@@ -430,6 +442,7 @@
         const okF = filter === 'all'
           || (filter === 'hot' && r.dataset.hot === '1')
           || (filter === 'av'  && r.dataset.av  === '1')
+          || (filter === 'preorder' && r.dataset.status === 'preorder')
           || (filter === 'maybe' && r.dataset.source === 'inferred');
         const okQ = !term || r.dataset.s.includes(term);
         const vis = okF && okQ;
@@ -442,23 +455,42 @@
     q?.addEventListener('input', apply);
     seg?.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
-      seg.querySelectorAll('button').forEach(x => x.classList.remove('active'));
-      b.classList.add('active'); filter = b.dataset.f; apply();
+      seg.querySelectorAll('button').forEach(x => {
+        x.classList.remove('active'); x.setAttribute('aria-pressed', 'false');
+      });
+      b.classList.add('active'); b.setAttribute('aria-pressed', 'true');
+      filter = b.dataset.f; apply();
     });
     sort?.addEventListener('change', () => { sortRows(); apply(); });
     sortRows();
 
-    const ls = document.getElementById('lastsync');
-    const iso = ls?.dataset.iso;
-    if (iso) {
-      const d = new Date(iso), diff = (Date.now() - d) / 1000;
-      let txt;
-      if (diff < 60) txt = "à l'instant";
-      else if (diff < 3600) txt = Math.floor(diff/60) + " min";
-      else if (diff < 86400) txt = Math.floor(diff/3600) + " h";
-      else txt = Math.floor(diff/86400) + " j";
-      ls.textContent = txt;
-    } else if (ls) ls.textContent = "jamais";
+    // Les horodatages sont stockes en UTC. On les rend dans le fuseau local du
+    // visiteur pour eviter le decalage trompeur (sinon affichage en UTC).
+    const pad = n => String(n).padStart(2, '0');
+    document.querySelectorAll('time.lt').forEach(el => {
+      const d = new Date(el.dataset.iso);
+      if (isNaN(d)) return;
+      const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      el.textContent = el.dataset.fmt === 'time'
+        ? hm
+        : `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hm}`;
+      el.title = d.toLocaleString();
+    });
+
+    // Age relatif ("il y a X") pour la derniere sonde et la generation de page.
+    function relAge(iso) {
+      if (!iso) return 'jamais';
+      const diff = (Date.now() - new Date(iso)) / 1000;
+      if (diff < 0) return "à l'instant";
+      if (diff < 60) return "à l'instant";
+      if (diff < 3600) return Math.floor(diff / 60) + " min";
+      if (diff < 86400) return Math.floor(diff / 3600) + " h";
+      return Math.floor(diff / 86400) + " j";
+    }
+    ['lastsync', 'pagegen'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = relAge(el.dataset.iso);
+    });
   </script>
 </body>
 </html>

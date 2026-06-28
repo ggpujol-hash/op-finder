@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 
 from .config import AppConfig
 from .db import upsert_product
-from .models import Event, ProductState
+from .models import Event, ProductState, clean_price
 
 
 def _matches(title: str, keywords: list[str]) -> bool:
@@ -57,6 +57,17 @@ def apply_filters(states: list[ProductState], cfg: AppConfig) -> list[ProductSta
             continue
         if _url_has_lang_code(st.url, cfg.exclude_lang_codes):
             continue
+        # Langue par defaut du site : si la boutique est dans une langue exclue
+        # (ex. shop FR) et que le produit ne porte AUCUN marqueur d'une langue
+        # voulue (EN/ENG...), on considere qu'il est dans la langue du site -> exclu.
+        # Opt-in : ne s'active que pour les sites ayant un `lang` configure.
+        site_lang = cfg.site_lang.get(st.site, "")
+        if site_lang and site_lang in cfg.exclude_lang_codes:
+            has_included = _has_lang_code(lang_text, cfg.include_lang_codes) or _url_has_lang_code(
+                st.url, cfg.include_lang_codes
+            )
+            if not has_included:
+                continue
         st.hot = _matches(st.title, cfg.hot_keywords)
         kept.append(st)
     return kept
@@ -66,31 +77,48 @@ def detect(conn: sqlite3.Connection, states: list[ProductState]) -> list[Event]:
     """Compare les etats observes a la base ; retourne uniquement les transitions.
 
     - new       : produit jamais vu (nouvelle precommande / nouvelle reference)
-    - restock   : passe de indisponible -> disponible
+    - restock   : passe de indisponible -> disponible, OU precommande qui devient
+                  reellement achetable (preorder -> confirmed) : la transition la
+                  plus importante a l'approche d'une sortie de set
     - price_change : prix modifie sur un produit deja dispo
     Les etats inchanges ne generent pas d'evenement (donc pas d'alerte).
     """
     events: list[Event] = []
     for st in states:
         prev = conn.execute(
-            "SELECT available, price FROM products WHERE key = ?", (st.key,)
+            "SELECT available, price, stock_status FROM products WHERE key = ?", (st.key,)
         ).fetchone()
 
         changed = False
         if prev is None:
-            detail = "Disponible" if st.available else "Reference creee (indispo)"
+            if st.stock_status == "preorder":
+                detail = "Precommande"
+            else:
+                detail = "Disponible" if st.available else "Reference creee (indispo)"
             events.append(Event(kind="new", state=st, detail=detail))
             changed = True
         else:
             was_available = bool(prev["available"])
+            prev_status = prev["stock_status"]
             if st.available and not was_available:
-                events.append(Event(kind="restock", state=st, detail="De retour en stock"))
+                detail = "Precommande ouverte" if st.stock_status == "preorder" else "De retour en stock"
+                events.append(Event(kind="restock", state=st, detail=detail))
                 changed = True
-            elif st.available and prev["price"] != st.price and st.price:
+            elif prev_status == "preorder" and st.stock_status == "confirmed":
+                # Disponible des deux cotes (available reste True), mais la
+                # precommande est desormais confirmee/achetable : on alerte malgre
+                # tout (sinon le passage "preco -> dispo reelle" serait muet).
+                events.append(
+                    Event(kind="restock", state=st, detail="Precommande desormais disponible")
+                )
+                changed = True
+            elif st.available and clean_price(prev["price"]) != clean_price(st.price) and clean_price(st.price):
                 events.append(
                     Event(kind="price_change", state=st,
                           detail=f"Prix : {prev['price']} -> {st.price}")
                 )
+                changed = True
+            elif prev_status != st.stock_status:
                 changed = True
 
         upsert_product(conn, st, changed=changed)

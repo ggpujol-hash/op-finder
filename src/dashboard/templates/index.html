@@ -394,7 +394,7 @@
                  title="{{ c.message }}">
               <span class="ico"></span>
               <span class="nm">{{ c.name }}</span>
-              <span class="it">{{ c.items }} obj · {% if c.ran_at %}<time class="lt" data-iso="{{ c.ran_at }}" data-fmt="time">{{ c.ran_at[11:16] }}</time>{% else %}jamais{% endif %}</span>
+              <span class="it">{{ c['items'] }} obj · {% if c.ran_at %}<time class="lt" data-iso="{{ c.ran_at }}" data-fmt="time">{{ c.ran_at[11:16] }}</time>{% else %}jamais{% endif %}</span>
             </div>
             {% if c.ok == false and c.message %}<div class="hmsg">{{ c.message }}</div>{% endif %}
             {% else %}

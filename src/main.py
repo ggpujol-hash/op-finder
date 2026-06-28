@@ -24,6 +24,10 @@ def _setup_logging() -> None:
         format="%(asctime)s  %(levelname)-7s %(name)s  %(message)s",
         datefmt="%H:%M:%S",
     )
+    # httpx loggue l'URL complete des requetes, ce qui exposerait le token
+    # Telegram dans les logs. On le passe en WARNING pour l'eviter.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 def cmd_run() -> None:

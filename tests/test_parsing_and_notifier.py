@@ -1,7 +1,7 @@
 import sqlite3
 import unittest
 
-from src.adapters.generic_html import page_url, pagination_urls, parse_products
+from src.adapters.generic_html import GenericHtmlAdapter, page_url, pagination_urls, parse_products
 from src.config import AppConfig, SiteConfig
 from src import db
 from src.detector import apply_filters, detect
@@ -162,6 +162,49 @@ class ParsingAndNotifierTest(unittest.TestCase):
             ],
         )
 
+    def test_generic_html_probes_query_pages_when_no_pagination_links(self) -> None:
+        site = SiteConfig(
+            name="Shop",
+            type="generic_html",
+            url="https://example.com/collection",
+            base_url="https://example.com",
+            max_pages=4,
+            selectors={
+                "item": ".product",
+                "title": ".title",
+                "link": "a",
+                "price": ".price",
+            },
+        )
+        pages = {
+            "https://example.com/collection": """
+                <div class="product"><a href="/p1"><span class="title">OP-01 Display</span></a></div>
+            """,
+            "https://example.com/collection?page=2": """
+                <div class="product"><a href="/p2"><span class="title">OP-02 Display</span></a></div>
+            """,
+            "https://example.com/collection?page=3": """
+                <div class="product"><a href="/p2"><span class="title">OP-02 Display</span></a></div>
+            """,
+        }
+        fetched_urls: list[str] = []
+
+        class FakeAdapter(GenericHtmlAdapter):
+            def fetch_html(self, url: str, attempts: int = 2) -> str:
+                fetched_urls.append(url)
+                return pages[url]
+
+        products = FakeAdapter(site).collect()
+
+        self.assertEqual([p.url for p in products], [
+            "https://example.com/p1",
+            "https://example.com/p2",
+        ])
+        self.assertEqual(fetched_urls, [
+            "https://example.com/collection",
+            "https://example.com/collection?page=2",
+            "https://example.com/collection?page=3",
+        ])
 
     def test_clean_price_normalizes_heterogeneous_formats(self) -> None:
         self.assertEqual(clean_price("119,90 EUR"), "119,90 €")

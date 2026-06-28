@@ -9,14 +9,18 @@ qui fournit du HTML rendu cote navigateur au lieu du HTML brut.
 """
 from __future__ import annotations
 
+import logging
 import re
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
+import httpx
 
 from ..config import SiteConfig
 from ..models import ProductState, clean_price, normalize_product_url
 from .base import Adapter
+
+log = logging.getLogger("adapter.generic")
 
 
 def _select_one_text(node, selector: str | None) -> str | None:
@@ -165,16 +169,63 @@ def pagination_urls(html: str, current_url: str, site: SiteConfig) -> list[str]:
 
 
 class GenericHtmlAdapter(Adapter):
+    def _append_new_products(
+        self,
+        products: list[ProductState],
+        seen_urls: set[str],
+        html: str,
+    ) -> int:
+        added = 0
+        for product in parse_products(html, self.site):
+            if product.url in seen_urls:
+                continue
+            seen_urls.add(product.url)
+            products.append(product)
+            added += 1
+        return added
+
+    def _collect_synthetic_pages(
+        self,
+        products: list[ProductState],
+        seen_urls: set[str],
+        first_page_urls: set[str],
+    ) -> None:
+        """Probe ?page=N or /page/N/ pages for JS "load more" catalogues."""
+        for page in range(2, self.site.max_pages + 1):
+            url = page_url(self.site.url, page, self.site)
+            if url in first_page_urls:
+                continue
+            try:
+                html = self.fetch_html(url)
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code in {404, 410}:
+                    log.debug("%s : pagination arretee sur page %d (%d)",
+                              self.site.name, page, exc.response.status_code)
+                    break
+                log.warning("%s : page %d ignoree (%s)", self.site.name, page, exc)
+                break
+            except httpx.HTTPError as exc:
+                log.warning("%s : page %d ignoree (%s)", self.site.name, page, exc)
+                break
+
+            added = self._append_new_products(products, seen_urls, html)
+            if added == 0:
+                break
+
     def collect(self) -> list[ProductState]:
         products: list[ProductState] = []
         seen_urls: set[str] = set()
         first_html = self.fetch_html(self.site.url)
-        urls = [self.site.url, *pagination_urls(first_html, self.site.url, self.site)]
-        for url in urls:
-            html = first_html if url == self.site.url else self.fetch_html(url)
-            for product in parse_products(html, self.site):
-                if product.url in seen_urls:
-                    continue
-                seen_urls.add(product.url)
-                products.append(product)
+        self._append_new_products(products, seen_urls, first_html)
+
+        linked_urls = pagination_urls(first_html, self.site.url, self.site)
+        for url in linked_urls:
+            self._append_new_products(products, seen_urls, self.fetch_html(url))
+
+        # Certains PrestaShop n'exposent pas de liens <a href> pour les pages
+        # suivantes : le bouton "load more" charge pourtant les memes pages via
+        # ?page=N. On les sonde prudemment et on s'arrete des qu'elles ne livrent
+        # plus de nouveaux produits.
+        if not linked_urls:
+            self._collect_synthetic_pages(products, seen_urls, {self.site.url})
         return products

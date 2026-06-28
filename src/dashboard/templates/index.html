@@ -125,6 +125,9 @@
     .search:focus { outline: none; border-color: var(--gold); width: 210px; }
     .sort { background: var(--ink); border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px 10px; color: var(--parch); font: 13px "Hanken Grotesk", system-ui, sans-serif; }
     .sort:focus { outline: none; border-color: var(--gold); }
+    .dense { background: var(--ink); border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px 12px; color: var(--muted); font: 600 12px "Hanken Grotesk", system-ui, sans-serif; cursor: pointer; white-space: nowrap; transition: .18s; }
+    .dense:hover { color: var(--parch); }
+    .dense[aria-pressed="true"] { color: var(--gold-br); border-color: var(--gold); }
     .seg { display: inline-flex; background: var(--ink); border: 1px solid var(--line-soft); border-radius: 10px; padding: 3px; }
     .seg button { font-family: inherit; font-size: 12px; font-weight: 600; color: var(--muted); background: none; border: 0; padding: 6px 12px; border-radius: 7px; cursor: pointer; transition: .18s; white-space: nowrap; }
     .seg button:hover { color: var(--parch); }
@@ -144,6 +147,10 @@
     }
     thead th.num, td.num { text-align: right; }
     tbody td { padding: 14px 22px; border-bottom: 1px solid var(--line-soft); font-size: 13.5px; vertical-align: middle; }
+    /* Mode compact : moins de hauteur de ligne, note de source masquee. */
+    table.compact tbody td { padding: 7px 22px; font-size: 12.5px; }
+    table.compact .ptitle { line-height: 1.2; }
+    table.compact .source-note { display: none; }
     tbody tr { transition: background .14s; }
     tbody tr:hover { background: rgba(224,173,90,0.05); }
     tbody tr:last-child td { border-bottom: 0; }
@@ -292,7 +299,8 @@
             <span class="count" id="shown">{{ products|length }}</span>
             <div class="toolbar">
               <div class="seg" id="seg" role="group" aria-label="Filtrer les produits">
-                <button class="active" data-f="all" aria-pressed="true">Tout</button>
+                <button class="active" data-f="relevant" aria-pressed="true">Pertinents</button>
+                <button data-f="all" aria-pressed="false">Tout</button>
                 <button data-f="hot" aria-pressed="false">🔥 HOT</button>
                 <button data-f="av" aria-pressed="false">En stock</button>
                 <button data-f="preorder" aria-pressed="false">Préco</button>
@@ -303,6 +311,7 @@
                 <option value="site">Boutique</option>
                 <option value="price">Prix croissant</option>
               </select>
+              <button class="dense" id="dense" type="button" aria-pressed="false" title="Densité d'affichage">Compact</button>
               <input class="search" id="q" type="search" placeholder="Rechercher…" autocomplete="off">
             </div>
           </div>
@@ -415,7 +424,9 @@
     const sort = document.getElementById('sort');
     const shown = document.getElementById('shown');
     const noresult = document.getElementById('noresult');
-    let filter = 'all';
+    // Par defaut : "Pertinents" = on masque les ruptures (la moitie de la liste),
+    // l'essentiel pour la veille. Le filtre "Tout" les reaffiche.
+    let filter = 'relevant';
 
     function priceValue(row) {
       const raw = row.dataset.price || '';
@@ -440,6 +451,7 @@
       let n = 0;
       rows.forEach(r => {
         const okF = filter === 'all'
+          || (filter === 'relevant' && r.dataset.av === '1')
           || (filter === 'hot' && r.dataset.hot === '1')
           || (filter === 'av'  && r.dataset.av  === '1')
           || (filter === 'preorder' && r.dataset.status === 'preorder')
@@ -462,7 +474,28 @@
       filter = b.dataset.f; apply();
     });
     sort?.addEventListener('change', () => { sortRows(); apply(); });
+
+    // Bascule confort / compact, memorisee localement.
+    const dense = document.getElementById('dense');
+    const table = document.getElementById('ptable');
+    function setDense(on) {
+      table?.classList.toggle('compact', on);
+      if (dense) {
+        dense.setAttribute('aria-pressed', on ? 'true' : 'false');
+        dense.textContent = on ? 'Confort' : 'Compact';
+      }
+    }
+    if (dense && table) {
+      setDense(localStorage.getItem('opf_dense') === '1');
+      dense.addEventListener('click', () => {
+        const on = !table.classList.contains('compact');
+        setDense(on);
+        localStorage.setItem('opf_dense', on ? '1' : '0');
+      });
+    }
+
     sortRows();
+    apply();   // applique le filtre "Pertinents" des le chargement
 
     // Les horodatages sont stockes en UTC. On les rend dans le fuseau local du
     // visiteur pour eviter le decalage trompeur (sinon affichage en UTC).

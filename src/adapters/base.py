@@ -76,6 +76,8 @@ class Adapter(ABC):
                     return resp.text
             except httpx.HTTPStatusError as e:
                 last_exc = e
+                if e.response.status_code == 403:
+                    return self._fetch_html_with_browser(url, e)
                 if e.response.status_code not in _RETRYABLE or attempt + 1 >= attempts:
                     raise
             except (httpx.TimeoutException, httpx.TransportError) as e:
@@ -88,6 +90,38 @@ class Adapter(ABC):
             time.sleep(delay)
         # Inatteignable (la boucle leve ou retourne), mais par securite :
         raise last_exc if last_exc else RuntimeError("fetch_html: echec inconnu")
+
+    def _fetch_html_with_browser(self, url: str, original_error: httpx.HTTPStatusError) -> str:
+        """Fallback Chromium pour les WAF qui refusent les requetes HTTP simples."""
+        try:
+            from playwright.sync_api import sync_playwright
+        except Exception:
+            raise original_error
+
+        log.warning("%s : HTTP 403 sur %s, fallback navigateur", self.site.name, url)
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
+                )
+                context = browser.new_context(
+                    user_agent=self.user_agent,
+                    locale="fr-FR",
+                    viewport={"width": 1366, "height": 900},
+                )
+                page = context.new_page()
+                try:
+                    response = page.goto(url, timeout=30000, wait_until="domcontentloaded")
+                    page.wait_for_timeout(3500)
+                    if response and response.status >= 400:
+                        raise original_error
+                    return page.content()
+                finally:
+                    context.close()
+                    browser.close()
+        except Exception:
+            raise original_error
 
     @abstractmethod
     def collect(self) -> list[ProductState]:

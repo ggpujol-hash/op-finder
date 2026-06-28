@@ -51,7 +51,7 @@ def build_context() -> dict:
     ]
     products = [dict(r) for r in db.recent_products(300)]
     alerts = [dict(r) for r in db.recent_alerts(50)]
-    checks = [dict(r) for r in db.recent_checks(40)]
+    checks = [dict(r) for r in db.recent_checks(200)]
 
     for p in products:
         site = site_cfg.get(p["site"])
@@ -77,6 +77,8 @@ def build_context() -> dict:
         "restock": sum(1 for a in alerts if a["kind"] == "restock"),
         "price_change": sum(1 for a in alerts if a["kind"] == "price_change"),
     }
+    enabled_health = [h for h in health if h["enabled"]]
+    health_ok = sum(1 for h in enabled_health if h["ok"] is True)
 
     sites_with_data = {p["site"] for p in products}
     stats = {
@@ -91,6 +93,8 @@ def build_context() -> dict:
         "sites_live": len(sites_with_data),
         "alerts": len(alerts),
         "alert_counts": alert_counts,
+        "health_ok": health_ok,
+        "health_total": len(enabled_health),
         "last_check": checks[0]["ran_at"] if checks else None,
         "checks_ok": sum(1 for c in checks if c["ok"]),
         "checks_total": len(checks),

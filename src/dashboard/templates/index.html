@@ -270,7 +270,7 @@
         <div class="stat">
           <div class="k">Sondes actives</div>
           <div class="v">{{ stats.sites_active }}</div>
-          <div class="sub">{{ stats.checks_ok }}/{{ stats.checks_total }} checks OK</div>
+          <div class="sub">{{ stats.health_ok }}/{{ stats.health_total }} sondes OK</div>
         </div>
       </div>
     </section>
@@ -374,7 +374,7 @@
         <div class="panel">
           <div class="panel-head">
             <h3>Santé des sondes</h3>
-            <span class="count">{{ stats.checks_ok }}/{{ stats.checks_total }}</span>
+            <span class="count">{{ stats.health_ok }}/{{ stats.health_total }}</span>
           </div>
           <div class="health">
             {% for c in health if c.enabled %}

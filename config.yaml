@@ -237,6 +237,7 @@ sites:
     url: "https://carteonepiece.fr/collections/displays-et-boosters-eng"
     base_url: "https://carteonepiece.fr"
     interval_seconds: 180
+    max_pages: 3
     keywords:
       - "one piece"
       - "op"
@@ -379,6 +380,7 @@ sites:
     url: "https://www.onytcg.it/en/categoria/preordini-one-piece"
     base_url: "https://www.onytcg.it"
     interval_seconds: 180
+    max_pages: 2
     selectors:
       item: ".product-card, article.product-card"
       title: ".product-card__name-link, h3 a"
@@ -398,6 +400,8 @@ sites:
     url: "https://shop.inerdini.it/en/categoria-prodotto/one-piece-tcg/booster-box/"
     base_url: "https://shop.inerdini.it"
     interval_seconds: 180
+    max_pages: 4
+    page_style: path
     selectors:
       item: "li.product, .product"
       title: ".woocommerce-loop-product__title"

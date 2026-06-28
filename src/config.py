@@ -23,6 +23,9 @@ class SiteConfig:
     interval_seconds: int = 180
     selectors: dict[str, str] = field(default_factory=dict)
     keywords: list[str] | None = None
+    max_pages: int = 10
+    page_param: str = "page"
+    page_style: str = "query"
     out_of_stock_markers: list[str] = field(default_factory=list)
     in_stock_selector: str | None = None
     # Specifiques a l'adapter playwright_html :
@@ -67,6 +70,9 @@ def load_config(path: str | Path | None = None) -> AppConfig:
                 interval_seconds=int(s.get("interval_seconds", 180)),
                 selectors=s.get("selectors", {}) or {},
                 keywords=([k.lower() for k in s["keywords"]] if "keywords" in s else None),
+                max_pages=int(s.get("max_pages", 10)),
+                page_param=s.get("page_param", "page"),
+                page_style=s.get("page_style", "query"),
                 out_of_stock_markers=[m.lower() for m in s.get("out_of_stock_markers", [])],
                 in_stock_selector=s.get("in_stock_selector"),
                 wait_for=s.get("wait_for"),

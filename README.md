@@ -15,6 +15,8 @@ Dashboard (FastAPI) <── SQLite (état + alertes + santé) <── Notifier (
 - **Adapters pilotés par config** : ajouter un site = quelques lignes dans `config.yaml`,
   pas de code. Deux types disponibles :
   - `generic_html` : boutiques en HTML server-rendered (rapide, httpx + BeautifulSoup).
+    Suit automatiquement les liens de pagination HTML (`?page=2`, `/page/2/`, etc.)
+    jusqu'a `max_pages` pour ne pas rater les produits des pages suivantes.
   - `playwright_html` : sites rendus en JavaScript (navigateur headless Chromium).
     Mêmes sélecteurs CSS que `generic_html`, avec en plus `wait_for`, `wait_ms`, `scroll`.
 - **Anti-spam** : on ne notifie que les *transitions* (apparition, retour en stock,

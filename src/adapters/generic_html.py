@@ -9,7 +9,8 @@ qui fournit du HTML rendu cote navigateur au lieu du HTML brut.
 """
 from __future__ import annotations
 
-from urllib.parse import urljoin
+import re
+from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
 
@@ -108,7 +109,55 @@ def parse_products(html: str, site: SiteConfig) -> list[ProductState]:
     return results
 
 
+def page_url(url: str, page: int, site: SiteConfig) -> str:
+    """Build a paginated URL while keeping page 1 equal to the configured URL."""
+    if page <= 1:
+        return url
+    if site.page_style == "path":
+        return f"{url.rstrip('/')}/page/{page}/"
+
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query[site.page_param] = str(page)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
+def _page_number(url: str, site: SiteConfig) -> int | None:
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    if site.page_param in query and query[site.page_param].isdigit():
+        return int(query[site.page_param])
+    match = re.search(r"/page/(\d+)/?", parts.path)
+    if match:
+        return int(match.group(1))
+    return None
+
+
+def pagination_urls(html: str, current_url: str, site: SiteConfig) -> list[str]:
+    """Find explicit pagination links in a category page, capped by site.max_pages."""
+    soup = BeautifulSoup(html, "html.parser")
+    pages: dict[int, str] = {}
+    for link in soup.select("a[href]"):
+        url = urljoin(current_url, link["href"])
+        page = _page_number(url, site)
+        if page is None or page <= 1 or page > site.max_pages:
+            continue
+        parts = urlsplit(url)
+        pages.setdefault(page, urlunsplit((parts.scheme, parts.netloc, parts.path, parts.query, "")))
+    return [pages[p] for p in sorted(pages)]
+
+
 class GenericHtmlAdapter(Adapter):
     def collect(self) -> list[ProductState]:
-        html = self.fetch_html(self.site.url)
-        return parse_products(html, self.site)
+        products: list[ProductState] = []
+        seen_urls: set[str] = set()
+        first_html = self.fetch_html(self.site.url)
+        urls = [self.site.url, *pagination_urls(first_html, self.site.url, self.site)]
+        for url in urls:
+            html = first_html if url == self.site.url else self.fetch_html(url)
+            for product in parse_products(html, self.site):
+                if product.url in seen_urls:
+                    continue
+                seen_urls.add(product.url)
+                products.append(product)
+        return products

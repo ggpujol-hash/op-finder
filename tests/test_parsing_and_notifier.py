@@ -1,6 +1,6 @@
 import unittest
 
-from src.adapters.generic_html import parse_products
+from src.adapters.generic_html import page_url, pagination_urls, parse_products
 from src.config import SiteConfig
 from src.models import Event, ProductState, normalize_product_url
 from src.notifier import format_message
@@ -67,6 +67,51 @@ class ParsingAndNotifierTest(unittest.TestCase):
         self.assertIn("119 &lt; 120", message)
         self.assertIn("Alerte &amp; check", message)
         self.assertIn('href="https://example.com/product?x=1&amp;y=2"', message)
+
+    def test_page_url_supports_query_and_path_pagination(self) -> None:
+        query_site = SiteConfig(
+            name="Shop",
+            type="generic_html",
+            url="https://example.com/collection?sort=price",
+            page_param="page",
+        )
+        path_site = SiteConfig(
+            name="Shop",
+            type="generic_html",
+            url="https://example.com/category/",
+            page_style="path",
+        )
+
+        self.assertEqual(
+            page_url(query_site.url, 2, query_site),
+            "https://example.com/collection?sort=price&page=2",
+        )
+        self.assertEqual(
+            page_url(path_site.url, 3, path_site),
+            "https://example.com/category/page/3/",
+        )
+
+    def test_pagination_urls_are_discovered_from_links(self) -> None:
+        site = SiteConfig(
+            name="Shop",
+            type="generic_html",
+            url="https://example.com/collection",
+            max_pages=3,
+        )
+        html = """
+        <a href="/collection?page=2">2</a>
+        <a href="/collection?page=3">3</a>
+        <a href="/collection?page=4">4</a>
+        <a href="/other">Other</a>
+        """
+
+        self.assertEqual(
+            pagination_urls(html, site.url, site),
+            [
+                "https://example.com/collection?page=2",
+                "https://example.com/collection?page=3",
+            ],
+        )
 
 
 if __name__ == "__main__":

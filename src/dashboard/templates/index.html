@@ -130,7 +130,9 @@
     /* table : flux de page (pas de scroll interne) -> on voit tous les produits
        en faisant defiler la page ; l'en-tete de colonnes colle sous le header. */
     .panel.flow { overflow: visible; }
-    .tbl-scroll { overflow-x: auto; }
+    /* overflow visible (et pas auto) : sinon overflow-y calcule a "auto" et
+       l'en-tete se colle a cette zone au lieu du viewport. */
+    .tbl-scroll { overflow: visible; }
     table { width: 100%; border-collapse: collapse; }
     thead th {
       position: sticky; top: var(--header-h); z-index: 3; text-align: left;

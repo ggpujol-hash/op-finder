@@ -5,6 +5,7 @@ import logging
 import random
 import time
 
+import httpx
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from . import db
@@ -22,6 +23,32 @@ ALERT_COOLDOWN_HOURS = 12.0
 # au moins cette fraction du volume habituel (sinon un scrape partiel pénalise
 # tout le catalogue et provoque de faux restocks au passage suivant).
 RECONCILE_MIN_RATIO = 0.6
+
+_HTTP_LABELS = {
+    403: "Accès refusé (403) — IP bloquée ?",
+    404: "Page introuvable (404)",
+    410: "Page supprimée (410)",
+    429: "Trop de requêtes (429)",
+    500: "Erreur serveur (500)",
+    502: "Passerelle invalide (502)",
+    503: "Service indisponible (503)",
+}
+
+
+def human_error(exc: Exception) -> str:
+    """Transforme une exception technique en message court et lisible pour le
+    panneau santé (au lieu d'un dump httpx avec une URL MDN)."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        code = exc.response.status_code
+        return _HTTP_LABELS.get(code, f"Erreur HTTP {code}")
+    if isinstance(exc, httpx.TimeoutException):
+        return "Délai dépassé"
+    if isinstance(exc, httpx.ConnectError):
+        return "Connexion impossible"
+    if isinstance(exc, httpx.HTTPError):
+        return "Erreur réseau"
+    msg = str(exc).strip() or exc.__class__.__name__
+    return msg if len(msg) <= 80 else msg[:79] + "…"
 
 
 def run_site_check(site: SiteConfig, cfg: AppConfig, notifier: TelegramNotifier,
@@ -89,7 +116,7 @@ def run_site_check(site: SiteConfig, cfg: AppConfig, notifier: TelegramNotifier,
         return len(events)
     except Exception as e:  # noqa: BLE001 — on isole chaque site
         log.error("%s : echec du check — %s", site.name, e)
-        db.log_check(conn, site.name, ok=False, items=0, message=str(e))
+        db.log_check(conn, site.name, ok=False, items=0, message=human_error(e))
         conn.commit()
         return -1
     finally:

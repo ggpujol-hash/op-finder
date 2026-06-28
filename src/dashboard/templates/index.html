@@ -279,7 +279,7 @@
         <div class="stat">
           <div class="k">Produits en vigie</div>
           <div class="v">{{ stats.total }}</div>
-          <div class="sub">sur {{ stats.sites_live }} boutiques</div>
+          <div class="sub">répartis sur {{ stats.sites_live }} boutiques</div>
         </div>
         <div class="stat">
           <div class="k">Cibles 🔥 prioritaires</div>
@@ -292,9 +292,9 @@
           <div class="sub">{{ stats.preorders }} précommandes · {{ stats.available_inferred }} non confirmés</div>
         </div>
         <div class="stat">
-          <div class="k">Sondes actives</div>
+          <div class="k">Boutiques surveillées</div>
           <div class="v">{{ stats.sites_active }}</div>
-          <div class="sub">{{ stats.health_ok }}/{{ stats.health_total }} sondes OK</div>
+          <div class="sub">{{ stats.health_ok }}/{{ stats.health_total }} en ligne · {{ stats.sites_total }} configurées</div>
         </div>
       </div>
     </section>

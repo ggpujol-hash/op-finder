@@ -246,6 +246,18 @@ class ParsingAndNotifierTest(unittest.TestCase):
                                             stock_status="confirmed")])
         self.assertEqual([e.kind for e in events], ["restock"])
 
+    def test_human_error_messages(self) -> None:
+        import httpx
+        from src.runner import human_error
+        req = httpx.Request("GET", "https://e.com")
+        forbidden = httpx.HTTPStatusError(
+            "boom", request=req, response=httpx.Response(403, request=req)
+        )
+        self.assertEqual(human_error(forbidden), "Accès refusé (403) — IP bloquée ?")
+        self.assertEqual(human_error(httpx.ConnectError("x")), "Connexion impossible")
+        self.assertEqual(human_error(httpx.ReadTimeout("x")), "Délai dépassé")
+        self.assertEqual(human_error(ValueError("souci precis")), "souci precis")
+
     def test_recent_alert_exists_dedup_and_window(self) -> None:
         from datetime import datetime, timezone, timedelta
         conn = _make_conn()

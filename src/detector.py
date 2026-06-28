@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from urllib.parse import urlsplit
 
 from .config import AppConfig
 from .db import upsert_product
@@ -28,6 +29,16 @@ def _has_lang_code(title: str, codes: list[str]) -> bool:
     return any(c in tokens for c in codes)
 
 
+def _url_has_lang_code(url: str, codes: list[str]) -> bool:
+    if not codes:
+        return False
+    segments = [s for s in urlsplit(url).path.lower().split("/") if s]
+    if segments and segments[0] in {"fr", "en", "it", "de", "es"}:
+        segments = segments[1:]
+    tokens = set(re.findall(r"[a-z0-9]+", " ".join(segments)))
+    return any(c in tokens for c in codes)
+
+
 def apply_filters(states: list[ProductState], cfg: AppConfig) -> list[ProductState]:
     """Garde les produits qui matchent keywords, hors langues exclues ;
     tague hot ceux qui matchent hot_keywords."""
@@ -36,12 +47,14 @@ def apply_filters(states: list[ProductState], cfg: AppConfig) -> list[ProductSta
         if not _matches(st.title, cfg.keywords):
             continue
         # Exclusion par langue (ex. on ne veut que l'anglais -> on retire FR/JP/CN/KR).
-        # On scanne le titre + les classes CSS de la fiche (indice de langue), mais
-        # pas l'URL (les segments de locale type "/fr/" provoqueraient des faux positifs).
+        # On scanne le titre + les classes CSS de la fiche (indice de langue). On
+        # scanne aussi le slug URL en ignorant le premier segment de locale (/fr/, /en/...).
         lang_text = f"{st.title} {st.tags}"
         if cfg.exclude_keywords and _matches(lang_text, cfg.exclude_keywords):
             continue
         if _has_lang_code(lang_text, cfg.exclude_lang_codes):
+            continue
+        if _url_has_lang_code(st.url, cfg.exclude_lang_codes):
             continue
         st.hot = _matches(st.title, cfg.hot_keywords)
         kept.append(st)

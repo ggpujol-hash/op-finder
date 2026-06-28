@@ -43,6 +43,7 @@ defaults:
   exclude_lang_codes:
     - "fr"
     - "jp"
+    - "jap"
     - "jpn"
     - "ko"
     - "kr"
@@ -316,6 +317,68 @@ sites:
       title: ":self"
       link: ":self"
     out_of_stock_markers: ["rupture", "indisponible", "épuisé"]
+
+  # =====================================================================
+  # Boutiques italiennes livrant en France / UE
+  # =====================================================================
+
+  # Il Nuovo Mondo : page "Shipping and Returns" mentionne UPS Europe.
+  - name: "Il Nuovo Mondo"
+    type: generic_html
+    enabled: true
+    url: "https://www.ilnuovomondoshop.it/en/trading-cards/one-piece-tcg/"
+    base_url: "https://www.ilnuovomondoshop.it"
+    interval_seconds: 180
+    selectors:
+      item: "article.product-miniature"
+      title: ".product-title a, h3 a, .h3 a"
+      link: ".product-title a, h3 a, .h3 a, a.thumbnail"
+      price: ".price, .product-price-and-shipping"
+    out_of_stock_markers:
+      - "out of stock"
+      - "sold out"
+      - "unavailable"
+      - "non disponibile"
+      - "esaurito"
+
+  # ONY TCG : page "Spedizioni" indique la livraison dans tous les pays UE.
+  - name: "ONY TCG"
+    type: generic_html
+    enabled: true
+    url: "https://www.onytcg.it/en/categoria/preordini-one-piece"
+    base_url: "https://www.onytcg.it"
+    interval_seconds: 180
+    selectors:
+      item: ".product-card, article.product-card"
+      title: ".product-card__name-link, h3 a"
+      link: ".product-card__name-link, h3 a, a.product-card__image-link"
+      price: ".product-card__current-price, .product-card__price"
+    out_of_stock_markers:
+      - "out of stock"
+      - "sold out"
+      - "unavailable"
+      - "non disponibile"
+      - "esaurito"
+
+  # Inerdini : page "Shipments" liste explicitement France parmi les pays servis.
+  - name: "Inerdini"
+    type: generic_html
+    enabled: true
+    url: "https://shop.inerdini.it/en/categoria-prodotto/one-piece-tcg/booster-box/"
+    base_url: "https://shop.inerdini.it"
+    interval_seconds: 180
+    selectors:
+      item: "li.product, .product"
+      title: ".woocommerce-loop-product__title"
+      link: "a.woocommerce-LoopProduct-link, a.woocommerce-loop-product__link, a"
+      price: ".price"
+    in_stock_selector: "a.add_to_cart_button, a.ajax_add_to_cart"
+    out_of_stock_markers:
+      - "out of stock"
+      - "sold out"
+      - "unavailable"
+      - "non disponibile"
+      - "esaurito"
 
   # tcgame.fr : site Wix. Les classes produit sont hachees (itemShared<NNN>) et
   # changent a chaque redeploiement -> selecteurs non fiables. Desactive : a

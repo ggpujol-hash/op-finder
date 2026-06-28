@@ -2,7 +2,8 @@ import sqlite3
 import unittest
 
 from src.db import SCHEMA
-from src.detector import detect
+from src.config import AppConfig
+from src.detector import apply_filters, detect
 from src.models import ProductState
 
 
@@ -41,6 +42,31 @@ class DetectorTest(unittest.TestCase):
             [(event.kind, event.detail) for event in detect(self.conn, [restocked])],
             [("restock", "De retour en stock")],
         )
+
+    def test_language_filter_reads_slug_without_locale_false_positive(self) -> None:
+        cfg = AppConfig(
+            telegram_token="",
+            telegram_chat_id="",
+            check_interval=180,
+            check_jitter=45,
+            keywords=["one piece"],
+            hot_keywords=[],
+            exclude_keywords=[],
+            exclude_lang_codes=["fr", "jap"],
+            sites=[],
+        )
+        english = ProductState(
+            site="Shop",
+            title="One Piece Booster Box ENG",
+            url="https://example.test/fr/one-piece-booster-box-eng",
+        )
+        japanese = ProductState(
+            site="Shop",
+            title="One Piece Booster Box...",
+            url="https://example.test/en/one-piece-booster-box-sealed-jap",
+        )
+
+        self.assertEqual(apply_filters([english, japanese], cfg), [english])
 
 
 if __name__ == "__main__":

@@ -39,8 +39,11 @@ class Adapter(ABC):
             "User-Agent": self.user_agent,
             "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Encoding": "gzip, deflate, br",
         }
+        # NB : on ne fixe PAS Accept-Encoding manuellement. httpx annonce seulement
+        # les encodages qu'il sait decoder (gzip/deflate, + brotli/zstd si les libs
+        # sont installees). Forcer "br" sans le paquet brotli renvoie du contenu
+        # non decode -> HTML illisible -> 0 produit.
         # Referer credible : la home de la boutique (un vrai visiteur y arrive
         # rarement directement sur la page categorie).
         referer = self.site.base_url or self.site.url

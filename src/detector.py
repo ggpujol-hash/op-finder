@@ -44,7 +44,8 @@ def apply_filters(states: list[ProductState], cfg: AppConfig) -> list[ProductSta
     tague hot ceux qui matchent hot_keywords."""
     kept: list[ProductState] = []
     for st in states:
-        if not _matches(st.title, cfg.keywords):
+        keywords = cfg.site_keywords.get(st.site, cfg.keywords)
+        if not _matches(st.title, keywords):
             continue
         # Exclusion par langue (ex. on ne veut que l'anglais -> on retire FR/JP/CN/KR).
         # On scanne le titre + les classes CSS de la fiche (indice de langue). On

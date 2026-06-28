@@ -53,6 +53,7 @@ class DetectorTest(unittest.TestCase):
             hot_keywords=[],
             exclude_keywords=[],
             exclude_lang_codes=["fr", "jap"],
+            site_keywords={},
             sites=[],
         )
         english = ProductState(
@@ -67,6 +68,32 @@ class DetectorTest(unittest.TestCase):
         )
 
         self.assertEqual(apply_filters([english, japanese], cfg), [english])
+
+    def test_site_specific_keywords_can_match_short_product_names(self) -> None:
+        cfg = AppConfig(
+            telegram_token="",
+            telegram_chat_id="",
+            check_interval=180,
+            check_jitter=45,
+            keywords=["one piece"],
+            hot_keywords=[],
+            exclude_keywords=[],
+            exclude_lang_codes=[],
+            site_keywords={"Carte One Piece": ["op", "display"]},
+            sites=[],
+        )
+        short_title = ProductState(
+            site="Carte One Piece",
+            title="OP16 Display Box - 24 boosters - ENG",
+            url="https://example.test/products/op16-display-box",
+        )
+        unrelated_short_title = ProductState(
+            site="Other Shop",
+            title="OP16 Display Box - 24 boosters - ENG",
+            url="https://example.test/products/op16-display-box",
+        )
+
+        self.assertEqual(apply_filters([short_title, unrelated_short_title], cfg), [short_title])
 
 
 if __name__ == "__main__":

@@ -22,6 +22,7 @@ class SiteConfig:
     enabled: bool = True
     interval_seconds: int = 180
     selectors: dict[str, str] = field(default_factory=dict)
+    keywords: list[str] | None = None
     out_of_stock_markers: list[str] = field(default_factory=list)
     in_stock_selector: str | None = None
     # Specifiques a l'adapter playwright_html :
@@ -40,6 +41,7 @@ class AppConfig:
     hot_keywords: list[str]
     exclude_keywords: list[str]
     exclude_lang_codes: list[str]
+    site_keywords: dict[str, list[str]]
     sites: list[SiteConfig]
 
 
@@ -64,6 +66,7 @@ def load_config(path: str | Path | None = None) -> AppConfig:
                 enabled=s.get("enabled", True),
                 interval_seconds=int(s.get("interval_seconds", 180)),
                 selectors=s.get("selectors", {}) or {},
+                keywords=([k.lower() for k in s["keywords"]] if "keywords" in s else None),
                 out_of_stock_markers=[m.lower() for m in s.get("out_of_stock_markers", [])],
                 in_stock_selector=s.get("in_stock_selector"),
                 wait_for=s.get("wait_for"),
@@ -81,5 +84,6 @@ def load_config(path: str | Path | None = None) -> AppConfig:
         hot_keywords=hot_keywords,
         exclude_keywords=exclude_keywords,
         exclude_lang_codes=exclude_lang_codes,
+        site_keywords={s.name: s.keywords for s in sites if s.keywords is not None},
         sites=sites,
     )

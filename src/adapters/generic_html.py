@@ -51,10 +51,13 @@ def _select_one_href(node, selector: str | None) -> str | None:
 
 
 def _is_available(node, site: SiteConfig) -> bool:
-    # 1. Marqueur explicite de dispo (bouton panier/precommande) -> disponible.
-    if site.in_stock_selector and node.select_one(site.in_stock_selector):
-        return True
-    # 2. Marqueur de rupture dans le texte de la fiche -> indisponible.
+    # 1. Si on a declare a quoi ressemble "en stock" (bouton panier), ce signal
+    #    fait autorite : present -> dispo, absent -> indispo. C'est le plus fiable
+    #    (ex. WooCommerce affiche "Ajouter au panier" vs "Lire la suite", et une
+    #    precommande "en attente" n'a pas de bouton panier).
+    if site.in_stock_selector:
+        return bool(node.select_one(site.in_stock_selector))
+    # 2. Sinon : indisponible si un marqueur de rupture apparait dans le texte.
     text = node.get_text(" ", strip=True).lower()
     for marker in site.out_of_stock_markers:
         if marker in text:

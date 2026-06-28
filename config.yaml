@@ -142,6 +142,9 @@ sites:
       title: ".woocommerce-loop-product__title"
       link: "a.woocommerce-LoopProduct-link, a.woocommerce-loop-product__link, a"
       price: ".price"
+    # WooCommerce : "Ajouter au panier" present = en stock ; sinon "Lire la suite"
+    # (precommande en attente, rupture...) = indisponible.
+    in_stock_selector: "a.add_to_cart_button, a.ajax_add_to_cart"
     out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
 
   - name: "Comptoir des Ecoliers"
@@ -155,6 +158,7 @@ sites:
       title: ".woocommerce-loop-product__title"
       link: "a.woocommerce-LoopProduct-link, a"
       price: ".price"
+    in_stock_selector: "a.add_to_cart_button, a.ajax_add_to_cart"
     out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
 
   # WooCommerce rendu via Elementor (theme custom).

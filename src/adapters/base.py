@@ -37,8 +37,18 @@ class Adapter(ABC):
     def _headers(self) -> dict[str, str]:
         headers = {
             "User-Agent": self.user_agent,
-            "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept": (
+                "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                "image/avif,image/webp,image/apng,*/*;q=0.8"
+            ),
+            "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7,it;q=0.6",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
         }
         # NB : on ne fixe PAS Accept-Encoding manuellement. httpx annonce seulement
         # les encodages qu'il sait decoder (gzip/deflate, + brotli/zstd si les libs

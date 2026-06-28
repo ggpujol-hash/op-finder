@@ -14,10 +14,19 @@ concurrency:
   group: op-finder-monitor
   cancel-in-progress: false
 
+# Droits necessaires pour publier le dashboard sur GitHub Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   monitor:
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -73,3 +82,19 @@ jobs:
         with:
           path: data/op_finder.db
           key: op-finder-state-${{ github.run_id }}
+
+      # ---- Publication du dashboard sur GitHub Pages ----
+      - name: Build dashboard snapshot
+        if: always()
+        run: python -m src.main snapshot site/index.html
+
+      - name: Upload Pages artifact
+        if: always()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        if: always()
+        uses: actions/deploy-pages@v4

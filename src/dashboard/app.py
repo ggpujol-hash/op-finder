@@ -39,8 +39,8 @@ def _startup() -> None:
     db.init_db()
 
 
-@app.get("/", response_class=HTMLResponse)
-def index(request: Request):
+def build_context() -> dict:
+    """Construit le contexte du dashboard (reutilise par la route et le snapshot statique)."""
     cfg = load_config()
     sites = [
         {"name": s.name, "enabled": s.enabled, "url": s.url,
@@ -64,19 +64,22 @@ def index(request: Request):
         "checks_ok": sum(1 for c in checks if c["ok"]),
         "checks_total": len(checks),
     }
+    return {
+        "products": products, "alerts": alerts, "checks": checks,
+        "sites": sites, "stats": stats,
+        "telegram_ok": bool(cfg.telegram_token and cfg.telegram_chat_id),
+    }
 
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "products": products,
-            "alerts": alerts,
-            "checks": checks,
-            "sites": sites,
-            "stats": stats,
-            "telegram_ok": bool(cfg.telegram_token and cfg.telegram_chat_id),
-        },
-    )
+
+def render_static() -> str:
+    """Rend le dashboard en HTML statique (pour publication sur GitHub Pages)."""
+    db.init_db()
+    return templates.env.get_template("index.html").render(**build_context())
+
+
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request, **build_context()})
 
 
 @app.get("/api/products")

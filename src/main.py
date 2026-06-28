@@ -52,6 +52,18 @@ def cmd_seed() -> None:
     print("Base initialisee (aucune alerte envoyee).")
 
 
+def cmd_snapshot(out: str) -> None:
+    """Genere une version HTML statique du dashboard (pour GitHub Pages)."""
+    from pathlib import Path
+
+    from .dashboard.app import render_static
+
+    path = Path(out)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_static(), encoding="utf-8")
+    print(f"Snapshot ecrit : {path}")
+
+
 def cmd_test() -> None:
     cfg = load_config()
     notifier = TelegramNotifier(cfg.telegram_token, cfg.telegram_chat_id)
@@ -105,6 +117,8 @@ def main(argv: list[str]) -> int:
         cmd_once()
     elif cmd == "seed":
         cmd_seed()
+    elif cmd == "snapshot":
+        cmd_snapshot(argv[2] if len(argv) > 2 else "site/index.html")
     elif cmd == "test":
         cmd_test()
     elif cmd == "probe":

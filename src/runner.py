@@ -15,6 +15,14 @@ from .notifier import TelegramNotifier
 
 log = logging.getLogger("runner")
 
+# Anti-spam : on ne renvoie pas une alerte identique avant ce delai (un produit
+# qui flappe dispo<->rupture sur un scrape intermittent sinon spamme).
+ALERT_COOLDOWN_HOURS = 12.0
+# reconcile : on ne marque des produits « disparus » que si le scrape a ramene
+# au moins cette fraction du volume habituel (sinon un scrape partiel pénalise
+# tout le catalogue et provoque de faux restocks au passage suivant).
+RECONCILE_MIN_RATIO = 0.6
+
 
 def run_site_check(site: SiteConfig, cfg: AppConfig, notifier: TelegramNotifier,
                    seed: bool = False) -> int:
@@ -49,15 +57,27 @@ def run_site_check(site: SiteConfig, cfg: AppConfig, notifier: TelegramNotifier,
 
         # Marque en rupture les produits disparus du listing depuis plusieurs
         # passages, pour qu'un futur retour declenche bien un restock. Uniquement
-        # sur un check fiable (reussi et non vide), jamais en seed.
+        # sur un check fiable (reussi et non vide), jamais en seed. On exige en
+        # plus un scrape « complet » (proche du volume habituel) : un scrape
+        # partiel (throttling CI...) ne doit pas marquer tout le monde disparu.
         if not seed and items:
-            flipped = db.reconcile_missing(conn, site.name, {st.key for st in states})
-            if flipped:
-                log.info("%s : %d produit(s) disparu(s) marque(s) en rupture", site.name, flipped)
+            complete = prev_items is None or items >= prev_items * RECONCILE_MIN_RATIO
+            if complete:
+                flipped = db.reconcile_missing(conn, site.name, {st.key for st in states})
+                if flipped:
+                    log.info("%s : %d produit(s) disparu(s) marque(s) en rupture", site.name, flipped)
+            else:
+                log.info("%s : scrape partiel (%d, habituel ~%d) — reconcile saute",
+                         site.name, items, prev_items)
 
         sent = 0
         if not seed:
             for ev in events:
+                # Anti-spam : on saute une alerte deja envoyee recemment (flapping).
+                if db.recent_alert_exists(conn, ev.state.key, ev.kind, ev.detail, ALERT_COOLDOWN_HOURS):
+                    log.info("%s : alerte doublon ignoree (< %gh) — %s",
+                             site.name, ALERT_COOLDOWN_HOURS, ev.state.title)
+                    continue
                 if notifier.send(ev):
                     sent += 1
                 db.log_alert(conn, ev.state, ev.kind, ev.detail)

@@ -102,6 +102,24 @@ def upsert_product(conn: sqlite3.Connection, st: ProductState, changed: bool) ->
         )
 
 
+def recent_alert_exists(
+    conn: sqlite3.Connection, key: str, kind: str, detail: str | None, within_hours: float = 12.0
+) -> bool:
+    """Vrai si une alerte identique (meme produit + type + detail) a deja ete
+    envoyee dans la fenetre donnee. Sert d'anti-spam : un produit qui oscille
+    dispo<->rupture (scrape intermittent cote CI) ne doit pas reemettre 8 fois
+    le meme restock. Le detail est inclus pour qu'un *vrai* changement de prix
+    (detail different) passe quand meme."""
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=within_hours)).isoformat()
+    row = conn.execute(
+        "SELECT 1 FROM alerts WHERE key = ? AND kind = ? "
+        "AND COALESCE(detail, '') = COALESCE(?, '') AND sent_at >= ? LIMIT 1",
+        (key, kind, detail, cutoff),
+    ).fetchone()
+    return row is not None
+
+
 def log_alert(conn: sqlite3.Connection, st: ProductState, kind: str, detail: str) -> None:
     conn.execute(
         """INSERT INTO alerts (key, site, title, url, kind, detail, sent_at)

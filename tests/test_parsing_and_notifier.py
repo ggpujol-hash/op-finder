@@ -246,6 +246,21 @@ class ParsingAndNotifierTest(unittest.TestCase):
                                             stock_status="confirmed")])
         self.assertEqual([e.kind for e in events], ["restock"])
 
+    def test_recent_alert_exists_dedup_and_window(self) -> None:
+        from datetime import datetime, timezone, timedelta
+        conn = _make_conn()
+        st = ProductState("Shop", "OP17 Display", "https://e.com/op17")
+        db.log_alert(conn, st, "restock", "De retour en stock")
+        # Doublon exact dans la fenetre -> True.
+        self.assertTrue(db.recent_alert_exists(conn, st.key, "restock", "De retour en stock", 12))
+        # Detail ou type different -> pas un doublon.
+        self.assertFalse(db.recent_alert_exists(conn, st.key, "restock", "Autre detail", 12))
+        self.assertFalse(db.recent_alert_exists(conn, st.key, "price_change", "De retour en stock", 12))
+        # Alerte hors fenetre -> ignoree.
+        old = (datetime.now(timezone.utc) - timedelta(hours=20)).isoformat()
+        conn.execute("UPDATE alerts SET sent_at = ? WHERE key = ?", (old, st.key))
+        self.assertFalse(db.recent_alert_exists(conn, st.key, "restock", "De retour en stock", 12))
+
     def test_last_successful_items_ignores_failed_checks(self) -> None:
         conn = _make_conn()
         db.log_check(conn, "Shop", ok=True, items=12, message="ok")

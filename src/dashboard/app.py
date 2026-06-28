@@ -40,7 +40,19 @@ def build_context() -> dict:
         for s in cfg.sites
     ]
     products = [dict(r) for r in db.recent_products(500)]
-    alerts = [dict(r) for r in db.recent_alerts(50)]
+    # Dedup d'affichage : un meme produit qui a flappe peut avoir genere
+    # plusieurs alertes identiques ; on ne garde que la plus recente par
+    # (produit, type, detail) pour un feed lisible. On en lit large avant dedup.
+    alerts_raw = [dict(r) for r in db.recent_alerts(200)]
+    seen_sig: set = set()
+    alerts = []
+    for a in alerts_raw:
+        sig = (a["key"], a["kind"], a.get("detail"))
+        if sig in seen_sig:
+            continue
+        seen_sig.add(sig)
+        alerts.append(a)
+    alerts = alerts[:50]
     checks = [dict(r) for r in db.recent_checks(200)]
 
     for p in products:

@@ -100,6 +100,9 @@ def parse_products(html: str, site: SiteConfig) -> list[ProductState]:
                 url=url,
                 price=_select_one_text(node, site.selectors.get("price")),
                 available=_is_available(node, site),
+                # Classes CSS de la fiche : contiennent souvent un indice de langue
+                # (ex. WooCommerce "product_cat-...-francais").
+                tags=" ".join(node.get("class") or []),
             )
         )
     return results

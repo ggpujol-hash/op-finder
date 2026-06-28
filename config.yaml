@@ -22,6 +22,32 @@ defaults:
     - "op17"
     - "display"
     - "booster box"
+  # Filtre de LANGUE : on ne veut que l'anglais. On retire les produits dont le
+  # titre contient un marqueur de langue non-anglaise (FR / JP / CN / KR).
+  # Vide cette liste pour tout garder, quelle que soit la langue.
+  exclude_keywords:
+    - "français"
+    - "francais"
+    - "(fr)"
+    - "jeu de cartes"      # nom de la gamme francaise (vs "Card Game")
+    - "japonais"
+    - "japanese"
+    - "chinois"
+    - "chinese"
+    - "coréen"
+    - "coreen"
+    - "korean"
+  # Codes de langue detectes comme tokens isoles (ex. "One Piece FR", "- KO -").
+  # Certains shops (Play-In, Ludotrotter) decrivent en francais mais taguent la
+  # vraie langue ainsi : "EN" reste, "FR/KO/JP/CN" sont retires.
+  exclude_lang_codes:
+    - "fr"
+    - "jp"
+    - "jpn"
+    - "ko"
+    - "kr"
+    - "cn"
+    - "chn"
 
 sites:
   # Selecteurs VERIFIES sur la page categorie One Piece (juin 2026).

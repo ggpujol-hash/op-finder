@@ -15,6 +15,9 @@ class ProductState:
     price: str | None = None
     available: bool = True
     hot: bool = False
+    # Texte additionnel pour le filtrage langue (classes CSS de la fiche, etc.),
+    # non persiste : sert uniquement a detecter la langue avant stockage.
+    tags: str = ""
 
     @property
     def key(self) -> str:

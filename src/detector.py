@@ -1,6 +1,7 @@
 """Filtrage par mots-cles + detection des transitions (anti-spam d'alertes)."""
 from __future__ import annotations
 
+import re
 import sqlite3
 
 from .config import AppConfig
@@ -15,11 +16,32 @@ def _matches(title: str, keywords: list[str]) -> bool:
     return any(k in low for k in keywords)
 
 
+def _has_lang_code(title: str, codes: list[str]) -> bool:
+    """Vrai si un code de langue (fr, ko, jp...) apparait comme token isole.
+
+    On tokenise pour ne pas matcher a l'interieur d'un mot (ex. 'fr' dans
+    'fruits'). Gere les conventions type 'One Piece FR', '- KO -', '(JP)'.
+    """
+    if not codes:
+        return False
+    tokens = set(re.findall(r"[a-z0-9]+", title.lower()))
+    return any(c in tokens for c in codes)
+
+
 def apply_filters(states: list[ProductState], cfg: AppConfig) -> list[ProductState]:
-    """Garde les produits qui matchent keywords ; tague hot ceux qui matchent hot_keywords."""
+    """Garde les produits qui matchent keywords, hors langues exclues ;
+    tague hot ceux qui matchent hot_keywords."""
     kept: list[ProductState] = []
     for st in states:
         if not _matches(st.title, cfg.keywords):
+            continue
+        # Exclusion par langue (ex. on ne veut que l'anglais -> on retire FR/JP/CN/KR).
+        # On scanne le titre + les classes CSS de la fiche (indice de langue), mais
+        # pas l'URL (les segments de locale type "/fr/" provoqueraient des faux positifs).
+        lang_text = f"{st.title} {st.tags}"
+        if cfg.exclude_keywords and _matches(lang_text, cfg.exclude_keywords):
+            continue
+        if _has_lang_code(lang_text, cfg.exclude_lang_codes):
             continue
         st.hot = _matches(st.title, cfg.hot_keywords)
         kept.append(st)

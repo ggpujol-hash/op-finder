@@ -38,6 +38,8 @@ class AppConfig:
     check_jitter: int
     keywords: list[str]
     hot_keywords: list[str]
+    exclude_keywords: list[str]
+    exclude_lang_codes: list[str]
     sites: list[SiteConfig]
 
 
@@ -48,6 +50,8 @@ def load_config(path: str | Path | None = None) -> AppConfig:
     defaults = raw.get("defaults", {})
     keywords = [k.lower() for k in defaults.get("keywords", [])]
     hot_keywords = [k.lower() for k in defaults.get("hot_keywords", [])]
+    exclude_keywords = [k.lower() for k in defaults.get("exclude_keywords", [])]
+    exclude_lang_codes = [k.lower() for k in defaults.get("exclude_lang_codes", [])]
 
     sites: list[SiteConfig] = []
     for s in raw.get("sites", []):
@@ -75,5 +79,7 @@ def load_config(path: str | Path | None = None) -> AppConfig:
         check_jitter=int(os.getenv("CHECK_JITTER_SECONDS", "45")),
         keywords=keywords,
         hot_keywords=hot_keywords,
+        exclude_keywords=exclude_keywords,
+        exclude_lang_codes=exclude_lang_codes,
         sites=sites,
     )

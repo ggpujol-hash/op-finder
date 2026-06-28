@@ -1,0 +1,75 @@
+name: OP Finder — monitoring
+
+# Surveillance des displays/precommandes One Piece, executee gratuitement sur
+# les runners GitHub. Chaque execution boucle ~25 min (check toutes les ~90 s),
+# relancee toutes les 30 min -> cadence reelle ~1m30, sans dependre du Mac.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # toutes les 30 min (GitHub peut retarder le declenchement)
+  workflow_dispatch:          # bouton "Run workflow" pour lancer a la main
+
+# Empeche deux executions de tourner en parallele (sinon alertes en double).
+concurrency:
+  group: op-finder-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      # Restaure la base SQLite de l'execution precedente (etat = anti-doublon).
+      # Cle unique par run + restore-keys pour recuperer le cache le plus recent.
+      - name: Restore state
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: data/op_finder.db
+          key: op-finder-state-${{ github.run_id }}
+          restore-keys: |
+            op-finder-state-
+
+      # Premier lancement (aucun cache) : on amorce la base SANS alerter,
+      # pour ne pas recevoir tout le catalogue existant d'un coup.
+      - name: Seed on first run
+        if: steps.cache.outputs.cache-matched-key == ''
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m src.main seed
+
+      # Boucle de surveillance : check toutes les ~90 s pendant ~25 min.
+      - name: Monitor loop
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          END=$((SECONDS + 1500))   # 25 minutes
+          while [ $SECONDS -lt $END ]; do
+            python -m src.main once || true
+            sleep 90
+          done
+
+      # Sauvegarde l'etat pour la prochaine execution (cache toujours mis a jour,
+      # meme si la boucle a ete interrompue, pour ne pas re-alerter).
+      - name: Save state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/op_finder.db
+          key: op-finder-state-${{ github.run_id }}

@@ -67,10 +67,45 @@ python -m src.main probe "https://www.philibertnet.com/fr/recherche?s=one+piece"
 La commande liste les blocs HTML répétés (candidats `item`) et les liens produit.
 Ajuste ensuite `selectors.item / title / link / price` dans `config.yaml`.
 
-## Déploiement 24/7
+## Déploiement 24/7 — GitHub Actions (gratuit)
 
-Un petit VPS (Hetzner ~4 €/mois) ou un Raspberry Pi suffit. Lance `python -m src.main run`
-sous `systemd` ou `tmux`, et le dashboard derrière nginx si tu veux y accéder à distance.
+Le monitoring tourne gratuitement sur les runners GitHub, sans serveur ni Mac
+allumé, via [`.github/workflows/monitor.yml`](.github/workflows/monitor.yml).
+
+**Fonctionnement** : chaque exécution boucle ~25 min (check toutes les ~90 s),
+relancée toutes les 30 min → cadence réelle ~1m30. L'état (base SQLite) est
+conservé entre les exécutions via le cache Actions, ce qui évite les alertes en
+double. Au tout premier lancement (cache vide), la base est *amorcée sans alerter*
+(`seed`) pour ne pas recevoir tout le catalogue existant d'un coup.
+
+> ⚠️ Le `cron` GitHub peut être retardé (10–30 min). Bon pour les **précommandes**
+> et restocks normaux ; pour sniper un sellout en < 1 min, il faut un VPS payant.
+> Les **minutes Actions sont illimitées sur un dépôt public** (en privé : ~2000/mois,
+> donc cadence bien plus lente).
+
+### Mise en place
+
+```bash
+# 1. Pousser le code (le workflow exige le scope "workflow" sur ton token gh) :
+gh auth refresh -h github.com -s workflow
+git push
+
+# 2. Ajouter les secrets Telegram (récupérés via @BotFather, cf. plus haut) :
+gh secret set TELEGRAM_BOT_TOKEN
+gh secret set TELEGRAM_CHAT_ID
+```
+
+3. Sur GitHub → onglet **Actions** → activer les workflows si demandé → le job
+   tourne automatiquement (ou bouton **Run workflow** pour lancer tout de suite).
+
+Sans les secrets, le monitoring tourne quand même mais n'envoie pas d'alerte
+(il les écrit seulement dans les logs).
+
+## Alternative : VPS / Raspberry Pi
+
+Pour du vrai sub-minute, un petit VPS (Oracle Cloud *Always Free*, ou Hetzner
+~4 €/mois) ou un Raspberry Pi : lance `python -m src.main run` sous `systemd` ou
+`tmux`, et le dashboard derrière nginx pour y accéder à distance.
 
 ## État des sites (vérifié juin 2026)
 

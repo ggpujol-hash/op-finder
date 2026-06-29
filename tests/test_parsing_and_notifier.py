@@ -96,6 +96,30 @@ class ParsingAndNotifierTest(unittest.TestCase):
         self.assertTrue(by_url["https://example.com/op10"].available)
         self.assertEqual(by_url["https://example.com/op01"].stock_status, "out")
 
+    def test_woocommerce_outofstock_class_beats_cart_button(self) -> None:
+        # Certains themes WooCommerce affichent un bouton panier meme sur les
+        # produits epuises -> la classe `outofstock` doit faire autorite.
+        site = SiteConfig(
+            name="Woo", type="generic_html",
+            url="https://example.com", base_url="https://example.com",
+            selectors={"item": "li.product", "title": ".title", "link": "a"},
+            in_stock_selector="a.add_to_cart_button",
+        )
+        html = """
+        <li class="product outofstock">
+          <a href="/eb02"><span class="title">EB-02 Anime 25th</span></a>
+          <a class="add_to_cart_button" href="?add-to-cart=1">Add to cart</a>
+        </li>
+        <li class="product instock">
+          <a href="/op10"><span class="title">OP-10 Box</span></a>
+          <a class="add_to_cart_button" href="?add-to-cart=2">Add to cart</a>
+        </li>
+        """
+        by_url = {p.url: p for p in parse_products(html, site)}
+        self.assertEqual(by_url["https://example.com/eb02"].stock_status, "out")
+        self.assertFalse(by_url["https://example.com/eb02"].available)
+        self.assertEqual(by_url["https://example.com/op10"].stock_status, "confirmed")
+
     def test_preorder_detected_from_url_slug(self) -> None:
         # Cas Shopify : la carte ne porte aucun marqueur, mais le slug d'URL trahit
         # la precommande -> doit etre classe "preorder", pas "inferred".

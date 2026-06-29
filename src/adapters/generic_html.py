@@ -79,29 +79,36 @@ def _has_marker(haystack: str, markers) -> bool:
 
 def _stock_status(node, site: SiteConfig, url: str = "") -> str:
     text = node.get_text(" ", strip=True)
+    classes = node.get("class") or []
     preorder_markers = [*DEFAULT_PREORDER_MARKERS, *site.preorder_markers]
 
     # 1. Precommande detectee dans le TEXTE de la carte : signal live, prioritaire.
     if _has_marker(text, preorder_markers):
         return "preorder"
 
-    # 2. Si on a declare a quoi ressemble "en stock" (bouton panier), ce signal
+    # 2. WooCommerce : la classe `outofstock` sur la fiche fait autorite. Certains
+    #    themes affichent quand meme un bouton "panier" sur les produits epuises,
+    #    ce qui trompe l'in_stock_selector -> on tranche d'abord sur la classe.
+    if "outofstock" in classes:
+        return "out"
+
+    # 3. Si on a declare a quoi ressemble "en stock" (bouton panier), ce signal
     #    fait autorite : present -> dispo, absent -> indispo. C'est le plus fiable
     #    (ex. WooCommerce affiche "Ajouter au panier" vs "Lire la suite", et une
     #    precommande "en attente" n'a pas de bouton panier).
     if site.in_stock_selector:
         return "confirmed" if node.select_one(site.in_stock_selector) else "out"
-    # 3. Sinon : indisponible si un marqueur de rupture apparait dans le texte
+    # 4. Sinon : indisponible si un marqueur de rupture apparait dans le texte
     #    (separateurs normalises -> "out of stock" matche le flag "Out-of-Stock").
     if _has_marker(text, site.out_of_stock_markers):
         return "out"
-    # 4. Precommande detectee seulement dans le SLUG d'URL : sur Shopify, la carte
+    # 5. Precommande detectee seulement dans le SLUG d'URL : sur Shopify, la carte
     #    d'une preco ressemble a un produit dispo, mais l'URL la trahit
     #    (".../precommande-...op16-anglais"). Applique APRES la rupture pour qu'une
     #    preco epuisee reste "out".
     if _has_marker(url, preorder_markers):
         return "preorder"
-    # 5. Par defaut : disponible. Si la boutique signale FIABLEMENT ses ruptures
+    # 6. Par defaut : disponible. Si la boutique signale FIABLEMENT ses ruptures
     #    (oos_markers_reliable), l'absence de marqueur vaut "en stock confirme" ;
     #    sinon on reste prudent ("inferred" = non confirme).
     return "confirmed" if site.oos_markers_reliable else "inferred"

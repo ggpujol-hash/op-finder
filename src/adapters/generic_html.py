@@ -88,7 +88,11 @@ def _stock_status(node, site: SiteConfig, url: str = "") -> str:
     #    rupture, par fiabilite : classe WooCommerce `outofstock`, marqueur texte
     #    (separateurs normalises -> "out of stock" matche "Out-of-Stock"), ou bouton
     #    panier declare (in_stock_selector) mais absent de la carte.
-    if "outofstock" in classes or node.select_one(".outofstock, .out-of-stock, .stock.out-of-stock"):
+    # `outofstock` sur la fiche (WooCommerce li.product) ou element de
+    # disponibilite `.stock.out-of-stock`. NB : on exige le parent `.stock` pour
+    # ne PAS confondre avec une classe d'icone (ex. PrestaShop "material-icons
+    # out-of-stock" presente sur chaque carte).
+    if "outofstock" in classes or node.select_one(".stock.out-of-stock, .stock.outofstock"):
         return "out"
     if _has_marker(text, site.out_of_stock_markers):
         return "out"

@@ -23,7 +23,7 @@ permissions:
 jobs:
   monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -77,10 +77,10 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           FLARESOLVERR_URL: http://localhost:8191/v1
         run: |
-          END=$((SECONDS + 1320))   # 22 minutes, laisse le temps de publier le dashboard
+          END=$((SECONDS + 1500))   # 25 min de boucle (laisse le temps de publier)
           while [ $SECONDS -lt $END ]; do
             python -m src.main once
-            sleep 90
+            sleep 60                 # sonde toutes les ~60 s pendant le run
           done
 
       # Sauvegarde l'etat pour la prochaine execution (cache toujours mis a jour,
@@ -97,6 +97,11 @@ jobs:
       # ---- Publication du dashboard sur GitHub Pages ----
       # Snapshot genere apres la boucle, donc la page publiee reflete le dernier etat connu.
       - name: Build dashboard snapshot
+        # Les secrets Telegram sont passes ici aussi : sinon le badge du dashboard
+        # affiche "Telegram a configurer" a tort (l'etape ne les verrait pas).
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python -m src.main snapshot site/index.html
 
       - name: Upload Pages artifact

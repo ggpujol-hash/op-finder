@@ -82,33 +82,29 @@ def _stock_status(node, site: SiteConfig, url: str = "") -> str:
     classes = node.get("class") or []
     preorder_markers = [*DEFAULT_PREORDER_MARKERS, *site.preorder_markers]
 
-    # 1. Precommande detectee dans le TEXTE de la carte : signal live, prioritaire.
-    if _has_marker(text, preorder_markers):
-        return "preorder"
-
-    # 2. WooCommerce : la classe `outofstock` sur la fiche fait autorite. Certains
-    #    themes affichent quand meme un bouton "panier" sur les produits epuises,
-    #    ce qui trompe l'in_stock_selector -> on tranche d'abord sur la classe.
+    # 1. RUPTURE explicite -> "out", PRIORITAIRE sur le label "precommande". Un
+    #    produit affiche "Pre-order" mais "Out of stock" (bouton inactif) n'est PAS
+    #    commandable : il doit remonter en rupture, pas en precommande. Signaux de
+    #    rupture, par fiabilite : classe WooCommerce `outofstock`, marqueur texte
+    #    (separateurs normalises -> "out of stock" matche "Out-of-Stock"), ou bouton
+    #    panier declare (in_stock_selector) mais absent de la carte.
     if "outofstock" in classes:
         return "out"
-
-    # 3. Si on a declare a quoi ressemble "en stock" (bouton panier), ce signal
-    #    fait autorite : present -> dispo, absent -> indispo. C'est le plus fiable
-    #    (ex. WooCommerce affiche "Ajouter au panier" vs "Lire la suite", et une
-    #    precommande "en attente" n'a pas de bouton panier).
-    if site.in_stock_selector:
-        return "confirmed" if node.select_one(site.in_stock_selector) else "out"
-    # 4. Sinon : indisponible si un marqueur de rupture apparait dans le texte
-    #    (separateurs normalises -> "out of stock" matche le flag "Out-of-Stock").
     if _has_marker(text, site.out_of_stock_markers):
         return "out"
-    # 5. Precommande detectee seulement dans le SLUG d'URL : sur Shopify, la carte
-    #    d'une preco ressemble a un produit dispo, mais l'URL la trahit
-    #    (".../precommande-...op16-anglais"). Applique APRES la rupture pour qu'une
-    #    preco epuisee reste "out".
-    if _has_marker(url, preorder_markers):
+    if site.in_stock_selector and not node.select_one(site.in_stock_selector):
+        return "out"
+
+    # 2. Precommande COMMANDABLE (on a ecarte les ruptures au-dessus) : label dans
+    #    le texte de la carte, ou dans le slug d'URL Shopify (".../precommande-...").
+    if _has_marker(text, preorder_markers) or _has_marker(url, preorder_markers):
         return "preorder"
-    # 6. Par defaut : disponible. Si la boutique signale FIABLEMENT ses ruptures
+
+    # 3. Bouton panier present (in_stock_selector) -> stock confirme.
+    if site.in_stock_selector:
+        return "confirmed"
+
+    # 4. Par defaut : disponible. Si la boutique signale FIABLEMENT ses ruptures
     #    (oos_markers_reliable), l'absence de marqueur vaut "en stock confirme" ;
     #    sinon on reste prudent ("inferred" = non confirme).
     return "confirmed" if site.oos_markers_reliable else "inferred"

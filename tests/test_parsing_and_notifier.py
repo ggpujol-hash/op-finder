@@ -96,6 +96,31 @@ class ParsingAndNotifierTest(unittest.TestCase):
         self.assertTrue(by_url["https://example.com/op10"].available)
         self.assertEqual(by_url["https://example.com/op01"].stock_status, "out")
 
+    def test_out_of_stock_beats_preorder_label(self) -> None:
+        # Une precommande "Out of stock" (bouton inactif) n'est pas commandable
+        # -> rupture. Une precommande sans marqueur de rupture -> precommande.
+        site = SiteConfig(
+            name="Ony", type="generic_html",
+            url="https://example.com", base_url="https://example.com",
+            selectors={"item": ".product-card", "title": ".title", "link": "a"},
+            out_of_stock_markers=["out of stock", "esaurito"],
+        )
+        html = """
+        <div class="product-card">
+          <a href="/st31"><span class="title">Starter Deck ST-31</span></a>
+          <span>Pre-order</span> <span>Out of stock</span>
+        </div>
+        <div class="product-card">
+          <a href="/op12"><span class="title">Booster OP-12</span></a>
+          <span>Pre-order</span> <span>Available</span>
+        </div>
+        """
+        by_url = {p.url: p for p in parse_products(html, site)}
+        self.assertEqual(by_url["https://example.com/st31"].stock_status, "out")
+        self.assertFalse(by_url["https://example.com/st31"].available)
+        self.assertEqual(by_url["https://example.com/op12"].stock_status, "preorder")
+        self.assertTrue(by_url["https://example.com/op12"].available)
+
     def test_woocommerce_outofstock_class_beats_cart_button(self) -> None:
         # Certains themes WooCommerce affichent un bouton panier meme sur les
         # produits epuises -> la classe `outofstock` doit faire autorite.

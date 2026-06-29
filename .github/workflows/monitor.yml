@@ -27,6 +27,13 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
+    # FlareSolverr resout les challenges Cloudflare pour les boutiques marquees
+    # `unblock: true` (Destock TCG, Inerdini). Accessible sur localhost:8191.
+    services:
+      flaresolverr:
+        image: ghcr.io/flaresolverr/flaresolverr:latest
+        ports:
+          - 8191:8191
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,6 +67,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FLARESOLVERR_URL: http://localhost:8191/v1
         run: python -m src.main seed
 
       # Boucle de surveillance : check toutes les ~90 s pendant ~25 min.
@@ -67,6 +75,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FLARESOLVERR_URL: http://localhost:8191/v1
         run: |
           END=$((SECONDS + 1320))   # 22 minutes, laisse le temps de publier le dashboard
           while [ $SECONDS -lt $END ]; do

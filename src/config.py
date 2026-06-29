@@ -33,6 +33,10 @@ class SiteConfig:
     # flag "Out-of-Stock" sur chaque carte epuisee). L'absence de marqueur vaut
     # alors "en stock confirme" plutot que "non confirme" (inferred).
     oos_markers_reliable: bool = False
+    # Si True : boutique protegee par Cloudflare. Quand FLARESOLVERR_URL est defini
+    # (en CI), on recupere la page via FlareSolverr (resolution du challenge JS).
+    # Sinon (ex. en local depuis une IP residentielle), fetch direct normal.
+    unblock: bool = False
     # Langue par defaut de la boutique (ex. "fr"). Optionnel : si renseigne ET
     # present dans exclude_lang_codes, on ne garde de ce site QUE les produits
     # explicitement tagues dans une langue voulue (cf. include_lang_codes) — utile
@@ -95,6 +99,7 @@ def load_config(path: str | Path | None = None) -> AppConfig:
                 preorder_markers=[m.lower() for m in s.get("preorder_markers", [])],
                 in_stock_selector=s.get("in_stock_selector"),
                 oos_markers_reliable=bool(s.get("oos_markers_reliable", False)),
+                unblock=bool(s.get("unblock", False)),
                 lang=str(s.get("lang", "")).lower(),
                 wait_for=s.get("wait_for"),
                 wait_ms=int(s.get("wait_ms", 2500)),

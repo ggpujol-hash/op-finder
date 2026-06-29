@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import random
 import time
 from abc import ABC, abstractmethod
@@ -65,6 +66,14 @@ class Adapter(ABC):
         """Telecharge le HTML avec un retry sur erreurs transitoires (429/5xx,
         timeout, coupure reseau). Les autres erreurs (403, 404...) remontent
         immediatement pour etre journalisees comme echec du check."""
+        # Boutiques Cloudflare : si un FlareSolverr est dispo (CI), on passe par
+        # lui pour resoudre le challenge JS. Sinon (local, IP residentielle), on
+        # retombe sur le fetch direct normal ci-dessous.
+        if self.site.unblock:
+            flaresolverr = os.getenv("FLARESOLVERR_URL")
+            if flaresolverr:
+                return self._fetch_via_flaresolverr(url, flaresolverr)
+
         last_exc: Exception | None = None
         for attempt in range(attempts):
             try:
@@ -90,6 +99,31 @@ class Adapter(ABC):
             time.sleep(delay)
         # Inatteignable (la boucle leve ou retourne), mais par securite :
         raise last_exc if last_exc else RuntimeError("fetch_html: echec inconnu")
+
+    def _fetch_via_flaresolverr(self, url: str, endpoint: str) -> str:
+        """Recupere une page protegee Cloudflare via FlareSolverr (resout le
+        challenge JS dans un vrai Chromium). En cas d'echec, leve une erreur HTTP
+        coherente pour que le check soit journalise proprement."""
+        payload = {"cmd": "request.get", "url": url, "maxTimeout": 60000}
+        resp = httpx.post(endpoint, json=payload, timeout=90.0)
+        resp.raise_for_status()
+        data = resp.json()
+        solution = data.get("solution") or {}
+        html = solution.get("response") or ""
+        status = solution.get("status") or 0
+        if data.get("status") != "ok" or not html:
+            raise httpx.HTTPError(
+                f"FlareSolverr: {data.get('message') or 'pas de solution'}"
+            )
+        # Cloudflare a quand meme refuse (blocage IP) -> on remonte un 403/4xx clair.
+        if status >= 400:
+            request = httpx.Request("GET", url)
+            raise httpx.HTTPStatusError(
+                f"FlareSolverr: statut {status}",
+                request=request,
+                response=httpx.Response(status, request=request),
+            )
+        return html
 
     def _fetch_html_with_browser(self, url: str, original_error: httpx.HTTPStatusError) -> str:
         """Fallback Chromium pour les WAF qui refusent les requetes HTTP simples."""

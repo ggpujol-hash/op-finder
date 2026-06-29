@@ -334,6 +334,8 @@ sites:
   - name: "Destock TCG"
     type: generic_html
     enabled: true
+    # Cloudflare : bloque l'IP datacenter de la CI -> fetch via FlareSolverr.
+    unblock: true
     url: "https://www.destocktcg.fr/jeux-de-cartes-a-collectionner/one-piece-card-game/"
     base_url: "https://www.destocktcg.fr"
     interval_seconds: 180
@@ -428,6 +430,8 @@ sites:
   - name: "Inerdini"
     type: generic_html
     enabled: true
+    # Cloudflare : bloque l'IP datacenter de la CI -> fetch via FlareSolverr.
+    unblock: true
     url: "https://shop.inerdini.it/en/categoria-prodotto/one-piece-tcg/booster-box/"
     base_url: "https://shop.inerdini.it"
     interval_seconds: 180

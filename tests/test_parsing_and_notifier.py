@@ -260,6 +260,40 @@ class ParsingAndNotifierTest(unittest.TestCase):
             "https://example.com/collection?page=3",
         ])
 
+    def test_unblock_routes_to_flaresolverr_when_env_set(self) -> None:
+        from unittest.mock import patch
+        site = SiteConfig(
+            name="CF", type="generic_html", url="https://cf.example",
+            base_url="https://cf.example", unblock=True,
+            selectors={"item": ".product", "title": ".title", "link": "a"},
+        )
+        ad = GenericHtmlAdapter(site)
+        with patch.dict("os.environ", {"FLARESOLVERR_URL": "http://localhost:8191/v1"}), \
+             patch.object(ad, "_fetch_via_flaresolverr", return_value="<html>via-fs</html>") as m:
+            out = ad.fetch_html("https://cf.example/page")
+        m.assert_called_once()
+        self.assertEqual(out, "<html>via-fs</html>")
+
+    def test_flaresolverr_parses_solution_and_flags_block(self) -> None:
+        import httpx
+        from unittest.mock import MagicMock, patch
+        site = SiteConfig(name="CF", type="generic_html", url="https://cf.example",
+                          base_url="https://cf.example", unblock=True, selectors={"item": ".p"})
+        ad = GenericHtmlAdapter(site)
+
+        ok = MagicMock()
+        ok.json.return_value = {"status": "ok", "solution": {"status": 200, "response": "<html>OK</html>"}}
+        with patch("src.adapters.base.httpx.post", return_value=ok):
+            self.assertEqual(
+                ad._fetch_via_flaresolverr("https://cf.example", "http://x/v1"), "<html>OK</html>"
+            )
+        # Cloudflare refuse encore (403) -> erreur HTTP claire.
+        blocked = MagicMock()
+        blocked.json.return_value = {"status": "ok", "solution": {"status": 403, "response": "x"}}
+        with patch("src.adapters.base.httpx.post", return_value=blocked):
+            with self.assertRaises(httpx.HTTPStatusError):
+                ad._fetch_via_flaresolverr("https://cf.example", "http://x/v1")
+
     def test_clean_price_normalizes_heterogeneous_formats(self) -> None:
         self.assertEqual(clean_price("119,90 EUR"), "119,90 €")
         self.assertEqual(clean_price("119,90 €"), "119,90 €")

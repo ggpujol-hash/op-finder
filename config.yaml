@@ -112,6 +112,9 @@ sites:
       title: "p.titre a"
       link: "p.titre a"
       price: "p.prix span.prix, .prix"
+    # Chaque carte affiche un libelle .disponibilite ("Disponible"/"Indisponible")
+    # -> ruptures fiables : l'absence de "indisponible" vaut "en stock confirme".
+    oos_markers_reliable: true
     out_of_stock_markers:
       - "rupture"
       - "indisponible"

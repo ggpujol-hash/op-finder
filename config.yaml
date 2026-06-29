@@ -230,6 +230,8 @@ sites:
       title: "h2.product_title"
       link: "a[href*='/produit/']"
       price: ".woocommerce-Price-amount, .amount"
+    # Chaque carte affiche sa disponibilite -> ruptures fiables.
+    oos_markers_reliable: true
     out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
 
   # --- Shopify ---
@@ -239,6 +241,7 @@ sites:
     url: "https://gamesavenue.fr/collections/display-one-piece"
     base_url: "https://gamesavenue.fr"
     interval_seconds: 180
+    oos_markers_reliable: true   # Shopify flague "Épuisé" sur les epuises
     selectors:
       item: ".grid__item, li.grid__item, .card"
       title: ".card__heading a, .full-unstyled-link, h3 a"
@@ -252,6 +255,7 @@ sites:
     url: "https://gamesavenue.fr/collections/coffret-pack-anglais"
     base_url: "https://gamesavenue.fr"
     interval_seconds: 180
+    oos_markers_reliable: true   # Shopify flague "Épuisé" sur les epuises
     selectors:
       item: ".grid__item, li.grid__item, .card"
       title: ".card__heading a, .full-unstyled-link, h3 a"
@@ -268,6 +272,7 @@ sites:
     base_url: "https://carteonepiece.fr"
     interval_seconds: 180
     max_pages: 3
+    oos_markers_reliable: true   # Shopify flague "Épuisé" sur les epuises
     keywords:
       - "one piece"
       - "op"
@@ -303,6 +308,8 @@ sites:
       title: ".product-miniature__infos a, .product-title a, h2 a, h3 a"
       link: "a.product-miniature__link"
       price: ".product-miniature__prices, .price"
+    # PrestaShop flague les epuises -> ruptures fiables.
+    oos_markers_reliable: true
     out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
 
   # Ancien theme PrestaShop.
@@ -317,6 +324,8 @@ sites:
       title: "a.product-name"
       link: "a.product-name"
       price: "span.price.product-price"
+    # PrestaShop flague les epuises -> ruptures fiables.
+    oos_markers_reliable: true
     out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
 
   # --- Themes maison ---

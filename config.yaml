@@ -329,6 +329,24 @@ sites:
     # PAS fiabiliser les ruptures ici -> dispo reste "non confirme" (inferred).
     out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
 
+  # Oupi.eu : PrestaShop protege par Cloudflare (403 "administrative rules" sur
+  # les IP datacenter, y compris en local). On tente via FlareSolverr en CI ; si
+  # l'IP runner reste bloquee, ce sera signale en rouge -> a desactiver. Selecteurs
+  # PrestaShop standards a confirmer une fois le HTML accessible.
+  - name: "Oupi"
+    type: generic_html
+    enabled: true
+    unblock: true
+    url: "https://oupi.eu/fr/382-one-piece"
+    base_url: "https://oupi.eu"
+    interval_seconds: 180
+    selectors:
+      item: "article.product-miniature, .product-miniature, .js-product-miniature"
+      title: ".product-title a, h3 a, h2 a, .product-name"
+      link: ".product-title a, a.thumbnail, a.product-thumbnail, h3 a"
+      price: ".price, .product-price-and-shipping, .product-price"
+    out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible", "out of stock", "sold out"]
+
   # --- Themes maison ---
   # Fantasy Sphere et Destock TCG partagent le meme moteur (.product-item-info).
   - name: "Fantasy Sphere"

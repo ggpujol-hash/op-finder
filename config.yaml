@@ -394,6 +394,9 @@ sites:
       title: ".product-title a, h3 a, .h3 a"
       link: ".product-title a, h3 a, .h3 a, a.thumbnail"
       price: ".price, .product-price-and-shipping"
+    # PrestaShop flague chaque carte epuisee ("Out-of-Stock") -> ruptures fiables :
+    # l'absence de flag = en stock confirme.
+    oos_markers_reliable: true
     out_of_stock_markers:
       - "out of stock"
       - "sold out"

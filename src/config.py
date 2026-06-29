@@ -29,6 +29,10 @@ class SiteConfig:
     out_of_stock_markers: list[str] = field(default_factory=list)
     preorder_markers: list[str] = field(default_factory=list)
     in_stock_selector: str | None = None
+    # Si True : la boutique flague fiablement ses ruptures (ex. PrestaShop avec un
+    # flag "Out-of-Stock" sur chaque carte epuisee). L'absence de marqueur vaut
+    # alors "en stock confirme" plutot que "non confirme" (inferred).
+    oos_markers_reliable: bool = False
     # Langue par defaut de la boutique (ex. "fr"). Optionnel : si renseigne ET
     # present dans exclude_lang_codes, on ne garde de ce site QUE les produits
     # explicitement tagues dans une langue voulue (cf. include_lang_codes) — utile
@@ -90,6 +94,7 @@ def load_config(path: str | Path | None = None) -> AppConfig:
                 out_of_stock_markers=[m.lower() for m in s.get("out_of_stock_markers", [])],
                 preorder_markers=[m.lower() for m in s.get("preorder_markers", [])],
                 in_stock_selector=s.get("in_stock_selector"),
+                oos_markers_reliable=bool(s.get("oos_markers_reliable", False)),
                 lang=str(s.get("lang", "")).lower(),
                 wait_for=s.get("wait_for"),
                 wait_ms=int(s.get("wait_ms", 2500)),

@@ -66,12 +66,23 @@ DEFAULT_PREORDER_MARKERS = (
 )
 
 
+def _norm(s: str) -> str:
+    """Normalise pour le matching de marqueurs : minuscules + tirets/insecables
+    ramenes a des espaces simples. Ainsi "out of stock" matche "Out-of-Stock"."""
+    return re.sub(r"[\s \-]+", " ", s.lower()).strip()
+
+
+def _has_marker(haystack: str, markers) -> bool:
+    norm = _norm(haystack)
+    return any(_norm(m) in norm for m in markers)
+
+
 def _stock_status(node, site: SiteConfig, url: str = "") -> str:
-    text = node.get_text(" ", strip=True).lower()
+    text = node.get_text(" ", strip=True)
     preorder_markers = [*DEFAULT_PREORDER_MARKERS, *site.preorder_markers]
 
     # 1. Precommande detectee dans le TEXTE de la carte : signal live, prioritaire.
-    if any(marker in text for marker in preorder_markers):
+    if _has_marker(text, preorder_markers):
         return "preorder"
 
     # 2. Si on a declare a quoi ressemble "en stock" (bouton panier), ce signal
@@ -80,18 +91,20 @@ def _stock_status(node, site: SiteConfig, url: str = "") -> str:
     #    precommande "en attente" n'a pas de bouton panier).
     if site.in_stock_selector:
         return "confirmed" if node.select_one(site.in_stock_selector) else "out"
-    # 3. Sinon : indisponible si un marqueur de rupture apparait dans le texte.
-    for marker in site.out_of_stock_markers:
-        if marker in text:
-            return "out"
+    # 3. Sinon : indisponible si un marqueur de rupture apparait dans le texte
+    #    (separateurs normalises -> "out of stock" matche le flag "Out-of-Stock").
+    if _has_marker(text, site.out_of_stock_markers):
+        return "out"
     # 4. Precommande detectee seulement dans le SLUG d'URL : sur Shopify, la carte
     #    d'une preco ressemble a un produit dispo, mais l'URL la trahit
     #    (".../precommande-...op16-anglais"). Applique APRES la rupture pour qu'une
     #    preco epuisee reste "out".
-    if any(marker in url.lower() for marker in preorder_markers):
+    if _has_marker(url, preorder_markers):
         return "preorder"
-    # 5. Par defaut : disponible (presence dans les resultats = en vente).
-    return "inferred"
+    # 5. Par defaut : disponible. Si la boutique signale FIABLEMENT ses ruptures
+    #    (oos_markers_reliable), l'absence de marqueur vaut "en stock confirme" ;
+    #    sinon on reste prudent ("inferred" = non confirme).
+    return "confirmed" if site.oos_markers_reliable else "inferred"
 
 
 def parse_products(html: str, site: SiteConfig) -> list[ProductState]:

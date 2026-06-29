@@ -72,6 +72,30 @@ class ParsingAndNotifierTest(unittest.TestCase):
         self.assertFalse(products[1].available)
         self.assertEqual(products[1].stock_status, "out")
 
+    def test_oos_reliable_with_hyphenated_flag(self) -> None:
+        # PrestaShop : flag "Out-of-Stock" (tirets) doit matcher le marqueur
+        # "out of stock" (espaces) ; et l'absence de flag = confirme si fiable.
+        site = SiteConfig(
+            name="Shop", type="generic_html",
+            url="https://example.com", base_url="https://example.com",
+            selectors={"item": ".product", "title": ".title", "link": "a", "price": ".price"},
+            out_of_stock_markers=["out of stock", "esaurito"],
+            oos_markers_reliable=True,
+        )
+        html = """
+        <div class="product">
+          <a href="/op10"><span class="title">OP-10 Box</span></a><span class="price">149,90 €</span>
+        </div>
+        <div class="product">
+          <a href="/op01"><span class="title">OP-01 Box</span></a><span class="price">149,90 €</span>
+          <span class="product-flags">Out-of-Stock</span>
+        </div>
+        """
+        by_url = {p.url: p for p in parse_products(html, site)}
+        self.assertEqual(by_url["https://example.com/op10"].stock_status, "confirmed")
+        self.assertTrue(by_url["https://example.com/op10"].available)
+        self.assertEqual(by_url["https://example.com/op01"].stock_status, "out")
+
     def test_preorder_detected_from_url_slug(self) -> None:
         # Cas Shopify : la carte ne porte aucun marqueur, mais le slug d'URL trahit
         # la precommande -> doit etre classe "preorder", pas "inferred".

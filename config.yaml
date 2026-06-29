@@ -324,8 +324,9 @@ sites:
       title: "a.product-name"
       link: "a.product-name"
       price: "span.price.product-price"
-    # PrestaShop flague les epuises -> ruptures fiables.
-    oos_markers_reliable: true
+    # NB : vieux thème PrestaShop -> la carte categorie n'affiche AUCUN signal de
+    # rupture (meme bouton "Ajouter au panier" sur les epuises). On ne peut donc
+    # PAS fiabiliser les ruptures ici -> dispo reste "non confirme" (inferred).
     out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
 
   # --- Themes maison ---

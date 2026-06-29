@@ -66,23 +66,31 @@ DEFAULT_PREORDER_MARKERS = (
 )
 
 
-def _stock_status(node, site: SiteConfig) -> str:
+def _stock_status(node, site: SiteConfig, url: str = "") -> str:
     text = node.get_text(" ", strip=True).lower()
     preorder_markers = [*DEFAULT_PREORDER_MARKERS, *site.preorder_markers]
+
+    # 1. Precommande detectee dans le TEXTE de la carte : signal live, prioritaire.
     if any(marker in text for marker in preorder_markers):
         return "preorder"
 
-    # 1. Si on a declare a quoi ressemble "en stock" (bouton panier), ce signal
+    # 2. Si on a declare a quoi ressemble "en stock" (bouton panier), ce signal
     #    fait autorite : present -> dispo, absent -> indispo. C'est le plus fiable
     #    (ex. WooCommerce affiche "Ajouter au panier" vs "Lire la suite", et une
     #    precommande "en attente" n'a pas de bouton panier).
     if site.in_stock_selector:
         return "confirmed" if node.select_one(site.in_stock_selector) else "out"
-    # 2. Sinon : indisponible si un marqueur de rupture apparait dans le texte.
+    # 3. Sinon : indisponible si un marqueur de rupture apparait dans le texte.
     for marker in site.out_of_stock_markers:
         if marker in text:
             return "out"
-    # 3. Par defaut : disponible (presence dans les resultats = en vente).
+    # 4. Precommande detectee seulement dans le SLUG d'URL : sur Shopify, la carte
+    #    d'une preco ressemble a un produit dispo, mais l'URL la trahit
+    #    (".../precommande-...op16-anglais"). Applique APRES la rupture pour qu'une
+    #    preco epuisee reste "out".
+    if any(marker in url.lower() for marker in preorder_markers):
+        return "preorder"
+    # 5. Par defaut : disponible (presence dans les resultats = en vente).
     return "inferred"
 
 
@@ -113,7 +121,7 @@ def parse_products(html: str, site: SiteConfig) -> list[ProductState]:
             continue
         seen_urls.add(url)
 
-        stock_status = _stock_status(node, site)
+        stock_status = _stock_status(node, site, url)
         results.append(
             ProductState(
                 site=site.name,

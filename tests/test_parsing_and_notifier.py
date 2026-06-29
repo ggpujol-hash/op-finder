@@ -72,6 +72,36 @@ class ParsingAndNotifierTest(unittest.TestCase):
         self.assertFalse(products[1].available)
         self.assertEqual(products[1].stock_status, "out")
 
+    def test_preorder_detected_from_url_slug(self) -> None:
+        # Cas Shopify : la carte ne porte aucun marqueur, mais le slug d'URL trahit
+        # la precommande -> doit etre classe "preorder", pas "inferred".
+        site = SiteConfig(
+            name="Shop", type="generic_html",
+            url="https://example.com", base_url="https://example.com",
+            selectors={"item": ".product", "title": ".title", "link": "a", "price": ".price"},
+            out_of_stock_markers=["épuisé", "rupture"],
+        )
+        html = """
+        <div class="product">
+          <a href="/products/precommande-display-op16-anglais"><span class="title">Display OP16 Anglais</span></a>
+          <span class="price">159,00 €</span>
+        </div>
+        <div class="product">
+          <a href="/products/precommande-display-op17-anglais"><span class="title">Display OP17 Anglais</span></a>
+          <span class="price">159,00 €</span>
+          <span>Épuisé</span>
+        </div>
+        """
+        products = parse_products(html, site)
+        by_url = {p.url: p for p in products}
+        op16 = by_url["https://example.com/products/precommande-display-op16-anglais"]
+        op17 = by_url["https://example.com/products/precommande-display-op17-anglais"]
+        self.assertEqual(op16.stock_status, "preorder")
+        self.assertTrue(op16.available)
+        # Une preco epuisee reste "out" (rupture prioritaire sur le slug).
+        self.assertEqual(op17.stock_status, "out")
+        self.assertFalse(op17.available)
+
     def test_parse_products_detects_preorders(self) -> None:
         site = SiteConfig(
             name="Shop",

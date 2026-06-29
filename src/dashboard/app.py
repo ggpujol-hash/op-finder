@@ -39,7 +39,10 @@ def build_context() -> dict:
          "stock_source": "confirmed" if s.in_stock_selector else "inferred"}
         for s in cfg.sites
     ]
-    products = [dict(r) for r in db.recent_products(500)]
+    # Plafond large : 18 boutiques completes depassent 500 produits ; on evite de
+    # tronquer le tableau (la vue "Pertinents" + le mode compact gardent la page
+    # lisible cote client).
+    products = [dict(r) for r in db.recent_products(2000)]
     # Dedup d'affichage : un meme produit qui a flappe peut avoir genere
     # plusieurs alertes identiques ; on ne garde que la plus recente par
     # (produit, type, detail) pour un feed lisible. On en lit large avant dedup.
@@ -136,7 +139,7 @@ def index(request: Request):
 
 @app.get("/api/products")
 def api_products():
-    return [dict(r) for r in db.recent_products(500)]
+    return [dict(r) for r in db.recent_products(2000)]
 
 
 @app.get("/api/alerts")

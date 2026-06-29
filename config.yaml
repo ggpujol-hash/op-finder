@@ -335,6 +335,7 @@ sites:
     enabled: true
     url: "https://www.fantasysphere.net/jeux-de-cartes-a-collectionner/one-piece-tcg/"
     base_url: "https://www.fantasysphere.net"
+    oos_markers_reliable: true   # Magento : epuises marques "Réassort"/"Rupture"
     interval_seconds: 180
     selectors:
       item: "div.product-item-info"
@@ -350,6 +351,7 @@ sites:
     unblock: true
     url: "https://www.destocktcg.fr/jeux-de-cartes-a-collectionner/one-piece-card-game/"
     base_url: "https://www.destocktcg.fr"
+    oos_markers_reliable: true   # Magento : epuises marques "Réassort"/"Rupture"
     interval_seconds: 180
     selectors:
       item: "div.product-item-info"

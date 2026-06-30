@@ -324,9 +324,10 @@ sites:
       title: "a.product-name"
       link: "a.product-name"
       price: "span.price.product-price"
-    # NB : vieux thème PrestaShop -> la carte categorie n'affiche AUCUN signal de
-    # rupture (meme bouton "Ajouter au panier" sur les epuises). On ne peut donc
-    # PAS fiabiliser les ruptures ici -> dispo reste "non confirme" (inferred).
+    # Vieux thème PrestaShop : le bouton "Ajouter au panier" porte la classe
+    # `disabled` quand le produit est epuise (et perd data-id-product). C'est le
+    # signal de stock fiable de la carte -> bouton actif = en stock, sinon rupture.
+    in_stock_selector: ".ajax_add_to_cart_button:not(.disabled)"
     out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
 
   # Oupi.eu : PrestaShop protege par Cloudflare (403 "administrative rules" sur

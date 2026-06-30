@@ -296,6 +296,37 @@ sites:
       - "rupture"
       - "indisponible"
 
+  # Shopify belges. Badge "Épuisé" fiable (verifie via l'API Shopify .js) ->
+  # oos_markers_reliable. Souvent tout en rupture (stock ecoule) : on alerte au
+  # restock des que le badge disparait.
+  - name: "Eclipse TCG"
+    type: generic_html
+    enabled: true
+    url: "https://www.eclipsetcg.be/collections/one-piece"
+    base_url: "https://www.eclipsetcg.be"
+    interval_seconds: 180
+    oos_markers_reliable: true
+    selectors:
+      item: ".product__card"
+      title: ".product__card__title"
+      link: ".product__card__title a, .product__card__thumbnail a, a[href*='/products/']"
+      price: ".price"
+    out_of_stock_markers: ["épuisé", "epuise", "sold out", "rupture", "indisponible"]
+
+  - name: "Outpost Brussels"
+    type: generic_html
+    enabled: true
+    url: "https://outpostbrussels.be/collections/one-piece-1"
+    base_url: "https://outpostbrussels.be"
+    interval_seconds: 180
+    oos_markers_reliable: true
+    selectors:
+      item: ".grid__item, li.grid__item, .card-wrapper, .card"
+      title: ".card__heading a, .full-unstyled-link, h3 a"
+      link: ".card__heading a, .full-unstyled-link, a"
+      price: ".price__regular .money, .price-item--regular, .price, .money"
+    out_of_stock_markers: ["épuisé", "epuise", "sold out", "rupture", "indisponible"]
+
   # --- PrestaShop ---
   - name: "Fantastik"
     type: generic_html

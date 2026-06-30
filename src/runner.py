@@ -97,8 +97,15 @@ def run_site_check(site: SiteConfig, cfg: AppConfig, notifier: TelegramNotifier,
                 log.info("%s : scrape partiel (%d, habituel ~%d) — reconcile saute",
                          site.name, items, prev_items)
 
+        # Premier passage reussi pour CE site (ex. boutique nouvellement ajoutee
+        # apres le seed initial) : on peuple sans alerter, comme un seed, pour ne
+        # pas envoyer tout son catalogue existant en "NOUVEAU" d'un coup. Les
+        # produits reellement nouveaux aux passages suivants alerteront normalement.
+        site_seed = prev_items is None
+        quiet = seed or site_seed
+
         sent = 0
-        if not seed:
+        if not quiet:
             for ev in events:
                 # Anti-spam : on saute une alerte deja envoyee recemment (flapping).
                 if db.recent_alert_exists(conn, ev.state.key, ev.kind, ev.detail, ALERT_COOLDOWN_HOURS):
@@ -109,10 +116,11 @@ def run_site_check(site: SiteConfig, cfg: AppConfig, notifier: TelegramNotifier,
                     sent += 1
                 db.log_alert(conn, ev.state, ev.kind, ev.detail)
         db.log_check(conn, site.name, ok=True, items=items,
-                     message=("seed" if seed else f"{len(events)} evenement(s)"))
+                     message=("seed" if quiet else f"{len(events)} evenement(s)"))
         conn.commit()
-        log.info("%s : %d produits, %d evenement(s), %d alerte(s) envoyee(s)",
-                 site.name, items, 0 if seed else len(events), sent)
+        log.info("%s : %d produits, %d evenement(s), %d alerte(s) envoyee(s)%s",
+                 site.name, items, 0 if quiet else len(events), sent,
+                 " [amorcage]" if site_seed and not seed else "")
         return len(events)
     except Exception as e:  # noqa: BLE001 — on isole chaque site
         log.error("%s : echec du check — %s", site.name, e)

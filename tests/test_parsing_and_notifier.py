@@ -458,6 +458,47 @@ class ParsingAndNotifierTest(unittest.TestCase):
         conn.execute("UPDATE alerts SET sent_at = ? WHERE key = ?", (old, st.key))
         self.assertFalse(db.recent_alert_exists(conn, st.key, "restock", "De retour en stock", 12))
 
+    def test_new_shop_seeded_silently_then_new_product_alerts(self) -> None:
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from src import runner, db as dbmod
+        from src.adapters.base import Adapter
+
+        box = {"list": [ProductState("NewShop", "Display OP-12", "https://e.com/op12",
+                                     stock_status="confirmed")]}
+
+        class FakeAdapter(Adapter):
+            def collect(self):
+                return list(box["list"])
+
+        class FakeNotifier:
+            def __init__(self):
+                self.sent = []
+
+            def send(self, ev):
+                self.sent.append(ev)
+                return True
+
+        site = SiteConfig(name="NewShop", type="generic_html", url="https://e.com",
+                          base_url="https://e.com",
+                          selectors={"item": ".p", "title": ".t", "link": "a"})
+        cfg = _make_cfg()
+        notifier = FakeNotifier()
+        with tempfile.TemporaryDirectory() as d:
+            with patch.object(dbmod, "DB_PATH", Path(d) / "t.db"), \
+                 patch.object(runner, "build_adapter", lambda s: FakeAdapter(s)):
+                dbmod.init_db()
+                # 1er passage = amorcage silencieux (boutique jamais vue).
+                runner.run_site_check(site, cfg, notifier)
+                self.assertEqual(notifier.sent, [])
+                # 2e passage : un produit reellement nouveau -> alerte "new".
+                box["list"].append(ProductState("NewShop", "Display OP-13",
+                                                 "https://e.com/op13", stock_status="confirmed"))
+                runner.run_site_check(site, cfg, notifier)
+                self.assertEqual([e.kind for e in notifier.sent], ["new"])
+                self.assertEqual([e.state.title for e in notifier.sent], ["Display OP-13"])
+
     def test_last_successful_items_ignores_failed_checks(self) -> None:
         conn = _make_conn()
         db.log_check(conn, "Shop", ok=True, items=12, message="ok")

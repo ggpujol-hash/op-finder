@@ -350,6 +350,11 @@ class ParsingAndNotifierTest(unittest.TestCase):
         # Prix barre + promo : on garde le montant courant (le dernier).
         self.assertEqual(clean_price("129,90 € 119,90 €"), "119,90 €")
         self.assertEqual(clean_price("à partir de 1 199,90 €"), "1 199,90 €")
+        # Separateurs de milliers exotiques (fine insecable U+202F / U+2009) :
+        # ne doivent PAS tronquer le montant ("2 495,00" -> "495,00").
+        self.assertEqual(clean_price("2 495,00 €"), "2 495,00 €")
+        self.assertEqual(clean_price("2 495,00€"), "2 495,00 €")
+        self.assertEqual(clean_price("2\xa0495,00 €"), "2 495,00 €")
         self.assertIsNone(clean_price(None))
 
     def test_keywords_keep_displays_without_one_piece_in_title(self) -> None:

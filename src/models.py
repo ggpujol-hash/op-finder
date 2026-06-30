@@ -22,7 +22,10 @@ def clean_price(value: str | None) -> str | None:
     """
     if not value:
         return None
-    v = value.replace("\xa0", " ")
+    # Normalise TOUS les espaces (insecable \xa0, fine insecable  , fine
+    #  ...) en espace simple : sinon un separateur de milliers exotique coupe
+    # le montant ("2 495,00" -> "495,00" en gardant le dernier groupe).
+    v = re.sub(r"\s+", " ", value)
     amounts = _PRICE_RE.findall(v)
     if amounts:
         return amounts[-1].strip() + " €"

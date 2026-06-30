@@ -90,7 +90,10 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           FLARESOLVERR_URL: http://localhost:8191/v1
         run: |
-          END=$((SECONDS + 1500))   # 25 min de boucle (laisse le temps de publier)
+          # 16 min de boucle : avec l'install (~5 min) + le deploiement (~2 min)
+          # + l'overhead FlareSolverr, le run total reste < 30 min pour ne PAS
+          # chevaucher le cron suivant (sinon les runs s'empilent et s'annulent).
+          END=$((SECONDS + 960))
           while [ $SECONDS -lt $END ]; do
             python -m src.main once
             sleep 60                 # sonde toutes les ~60 s pendant le run

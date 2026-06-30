@@ -345,6 +345,10 @@ sites:
       title: ".product-title a, h3 a, h2 a, .product-name"
       link: ".product-title a, a.thumbnail, a.product-thumbnail, h3 a"
       price: ".price, .product-price-and-shipping, .product-price"
+    # Oupi flague fiablement les epuises ("Rupture de stock" sur la carte) ->
+    # l'absence de marqueur vaut "en stock confirme". Verifie : ~104 epuises
+    # detectes par texte, le reste (dont les cases/displays dispo) -> confirme.
+    oos_markers_reliable: true
     out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible", "out of stock", "sold out"]
 
   # --- Themes maison ---

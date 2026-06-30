@@ -58,14 +58,20 @@ jobs:
 
       # Restaure la base SQLite de l'execution precedente (etat = anti-doublon).
       # Cle unique par run + restore-keys pour recuperer le cache le plus recent.
+      # IMPORTANT : actions/cache/restore (et NON actions/cache combine) -> seul
+      # le variant `restore` expose `cache-matched-key`, dont depend la condition
+      # du seed. Avec l'action combinee, `cache-matched-key` est toujours vide ->
+      # le seed s'executait a CHAQUE run et aucune alerte n'etait jamais envoyee.
       - name: Restore state
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: data/op_finder.db
-          key: op-finder-state-${{ github.run_id }}
+          # v2 : invalide les anciens caches (stock_status calcule par l'ancien
+          # code) -> 1 seed frais propre, puis alerting normal sans burst.
+          key: op-finder-state-v2-${{ github.run_id }}
           restore-keys: |
-            op-finder-state-
+            op-finder-state-v2-
 
       # Premier lancement (aucun cache) : on amorce la base SANS alerter,
       # pour ne pas recevoir tout le catalogue existant d'un coup.
@@ -99,7 +105,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: data/op_finder.db
-          key: op-finder-state-${{ github.run_id }}
+          key: op-finder-state-v2-${{ github.run_id }}
 
       # ---- Publication du dashboard sur GitHub Pages ----
       # Snapshot genere apres la boucle, donc la page publiee reflete le dernier etat connu.

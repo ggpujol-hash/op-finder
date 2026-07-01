@@ -152,6 +152,16 @@
       padding: 13px 22px; background: #0c121d; border-bottom: 1px solid var(--line); backdrop-filter: blur(4px);
     }
     thead th.num, td.num { text-align: right; }
+    thead th.sortable { cursor: pointer; user-select: none; transition: color .15s; }
+    thead th.sortable > span { display: inline-flex; align-items: center; vertical-align: middle; }
+    thead th.sortable:hover { color: var(--parch-dim); }
+    thead th[aria-sort="ascending"], thead th[aria-sort="descending"] { color: var(--gold); }
+    /* fleche de tri : masquee au repos, orientee selon le sens sur la colonne active */
+    thead th .arw { display: inline-block; width: 0; height: 0; margin: 0 6px; vertical-align: middle;
+      border-left: 4px solid transparent; border-right: 4px solid transparent; opacity: 0; transition: opacity .15s; }
+    thead th.sortable:hover .arw { opacity: .4; border-top: 5px solid currentColor; }
+    thead th[aria-sort="ascending"]  .arw { opacity: 1; border-bottom: 5px solid currentColor; border-top: 0; }
+    thead th[aria-sort="descending"] .arw { opacity: 1; border-top: 5px solid currentColor; border-bottom: 0; }
     tbody td { padding: 14px 22px; border-bottom: 1px solid var(--line-soft); font-size: 13.5px; vertical-align: middle; }
     /* Mode compact : moins de hauteur de ligne, note de source masquee. */
     table.compact tbody td { padding: 7px 22px; font-size: 12.5px; }
@@ -370,11 +380,11 @@
             <table id="ptable">
               <thead>
                 <tr>
-                  <th>Boutique</th>
-                  <th>Produit</th>
-                  <th class="num">Prix</th>
-                  <th>État</th>
-                  <th class="num">Maj</th>
+                  <th class="sortable" data-sort="site" aria-sort="none"><span>Boutique</span><i class="arw"></i></th>
+                  <th class="sortable" data-sort="title" aria-sort="none"><span>Produit</span><i class="arw"></i></th>
+                  <th class="sortable num" data-sort="price" aria-sort="none"><i class="arw"></i><span>Prix</span></th>
+                  <th class="sortable" data-sort="status" aria-sort="none"><span>État</span><i class="arw"></i></th>
+                  <th class="sortable num" data-sort="change" aria-sort="none"><i class="arw"></i><span>Maj</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -484,18 +494,49 @@
       const match = raw.replace(/\s/g, '').replace(',', '.').match(/\d+(\.\d+)?/);
       return match ? Number(match[0]) : Number.POSITIVE_INFINITY;
     }
+    // Rang d'etat pour le tri : en stock < precommande < non confirme < rupture.
+    function statusRank(row) {
+      if (row.dataset.status === 'preorder') return 1;
+      if (row.dataset.av === '1') return row.dataset.source === 'confirmed' ? 0 : 2;
+      return 3;
+    }
+    function titleText(row) {
+      return (row.querySelector('.ptitle span:last-child')?.textContent || '').trim().toLowerCase();
+    }
+
+    // Comparateur ascendant de base par cle ; le sens (asc/desc) est applique ensuite.
+    function baseCompare(key, a, b) {
+      if (key === 'site')   return a.dataset.site.localeCompare(b.dataset.site);
+      if (key === 'title')  return titleText(a).localeCompare(titleText(b));
+      if (key === 'price')  return priceValue(a) - priceValue(b);
+      if (key === 'status') return statusRank(a) - statusRank(b);
+      return (a.dataset.change || '').localeCompare(b.dataset.change || ''); // change
+    }
+
+    // Etat de tri unique, partage entre le menu deroulant et les en-tetes cliquables.
+    // dir : 1 = ascendant, -1 = descendant. Defaut : "Maj recente" (change, desc).
+    const headers = [...document.querySelectorAll('th.sortable')];
+    const state = { key: 'change', dir: -1 };
 
     function sortRows() {
       const tbody = document.querySelector('#ptable tbody');
       if (!tbody) return;
-      const mode = sort?.value || 'change';
-      const ordered = [...rows].sort((a, b) => {
-        if (mode === 'site') return a.dataset.site.localeCompare(b.dataset.site);
-        if (mode === 'price') return priceValue(a) - priceValue(b);
-        return (b.dataset.change || '').localeCompare(a.dataset.change || '');
-      });
+      const ordered = [...rows].sort((a, b) => state.dir * baseCompare(state.key, a, b));
       ordered.forEach(row => tbody.appendChild(row));
+      // Indicateurs visuels : fleche sur la colonne active, menu deroulant synchronise.
+      headers.forEach(h => h.setAttribute('aria-sort',
+        h.dataset.sort === state.key ? (state.dir === 1 ? 'ascending' : 'descending') : 'none'));
+      if (sort && ['change', 'site', 'price'].includes(state.key)) sort.value = state.key;
     }
+
+    // Sens par defaut au premier clic sur une colonne : texte = A→Z, dates = recent d'abord.
+    const defaultDir = key => (key === 'change' ? -1 : 1);
+    headers.forEach(h => h.addEventListener('click', () => {
+      const key = h.dataset.sort;
+      state.dir = state.key === key ? -state.dir : defaultDir(key);
+      state.key = key;
+      sortRows(); apply();
+    }));
 
     function apply() {
       const term = (q?.value || '').trim().toLowerCase();
@@ -524,7 +565,10 @@
       b.classList.add('active'); b.setAttribute('aria-pressed', 'true');
       filter = b.dataset.f; apply();
     });
-    sort?.addEventListener('change', () => { sortRows(); apply(); });
+    sort?.addEventListener('change', () => {
+      state.key = sort.value; state.dir = defaultDir(sort.value);
+      sortRows(); apply();
+    });
 
     // Bascule confort / compact, memorisee localement.
     const dense = document.getElementById('dense');

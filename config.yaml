@@ -108,6 +108,7 @@ defaults:
       - "présentoir"
       - "presentoir"
       - "carton"
+      - "case"
 
 sites:
   # Selecteurs VERIFIES sur la page categorie One Piece (juin 2026).

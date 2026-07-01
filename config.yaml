@@ -327,6 +327,62 @@ sites:
       price: ".price__regular .money, .price-item--regular, .price, .money"
     out_of_stock_markers: ["épuisé", "epuise", "sold out", "rupture", "indisponible"]
 
+  # Pokeca.NL : Shopify (theme Hulk) livrant l'UE. Chaque carte porte un badge
+  # "Sold Out" (.sold_out) fiable -> oos_markers_reliable. Catalogue majoritaire-
+  # ment One Piece sur cette collection.
+  - name: "Pokeca"
+    type: generic_html
+    enabled: true
+    url: "https://pokeca.nl/en/collections/one-piece-1"
+    base_url: "https://pokeca.nl"
+    interval_seconds: 180
+    oos_markers_reliable: true
+    selectors:
+      item: "[data-load-more--grid-item], .column.thumbnail"
+      title: ".product-details .title, .title"
+      link: "a.product-info__caption, a[href*='/products/']"
+      price: ".current_price .money, .price .money, .money"
+    out_of_stock_markers: ["sold out", "épuisé", "epuise", "rupture", "indisponible"]
+
+  # Poke-Geek (FR) : Shopify, theme Foxify (.sf__pcard). ATTENTION : le badge
+  # "Épuisé" (.prod__tag--soldout) est TOUJOURS dans le DOM (masque en CSS
+  # display:none) -> detection par texte impossible (elle marquerait tout en
+  # rupture). Signal fiable : le bouton panier icone recoit la classe `disabled`
+  # quand epuise. On cible donc `in_stock_selector` (bouton actif = en stock) et on
+  # laisse les marqueurs texte vides. Verifie contre l'API Shopify .js (12/12).
+  - name: "Poke-Geek"
+    type: generic_html
+    enabled: true
+    url: "https://www.poke-geek.fr/collections/one-piece"
+    base_url: "https://www.poke-geek.fr"
+    interval_seconds: 180
+    selectors:
+      item: ".sf__pcard"
+      title: ".sf__pcard-name"
+      link: ".sf__pcard-name, a[href*='/products/']"
+      price: ".sf__pcard-price"
+    in_stock_selector: ".sf__btn-icon.add-to-cart:not(.disabled)"
+    out_of_stock_markers: []
+
+  # Nevermint (FR) : Shopify, theme Dawn (.card-wrapper). Meme piege que Poke-Geek :
+  # un `.sold-out-message` cache met "Épuisé" dans le texte de CHAQUE carte -> pas
+  # de detection par texte. Signal fiable : bouton panier `button[name=add]` avec
+  # l'attribut `disabled` quand epuise. On cible `in_stock_selector`. Verifie contre
+  # l'API Shopify .js (6/6).
+  - name: "Nevermint"
+    type: generic_html
+    enabled: true
+    url: "https://nevermint.fr/collections/one-piece-boites-de-boosters-anglais"
+    base_url: "https://nevermint.fr"
+    interval_seconds: 180
+    selectors:
+      item: ".card-wrapper, li.grid__item"
+      title: ".card__heading a, .full-unstyled-link"
+      link: ".card__heading a, .full-unstyled-link, a[href*='/products/']"
+      price: ".price-item--regular, .price-item"
+    in_stock_selector: "button[name='add']:not([disabled])"
+    out_of_stock_markers: []
+
   # --- PrestaShop ---
   - name: "Fantastik"
     type: generic_html
@@ -382,6 +438,25 @@ sites:
     # detectes par texte, le reste (dont les cases/displays dispo) -> confirme.
     oos_markers_reliable: true
     out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible", "out of stock", "sold out"]
+
+  # --- CS-Cart ---
+  # SOD Games (BE) : CS-Cart (URL SEO en -bNNNNN.html) protege par Cloudflare
+  # (challenge JS sur toutes les pages, y compris robots.txt). Fetch via
+  # FlareSolverr en CI (unblock). Selecteurs CS-Cart standard (.ty-*) a confirmer
+  # une fois le HTML accessible.
+  - name: "SOD Games"
+    type: generic_html
+    enabled: true
+    unblock: true
+    url: "https://www.sodgames.be/one-piece-card-game-b145655.html"
+    base_url: "https://www.sodgames.be"
+    interval_seconds: 180
+    selectors:
+      item: ".ty-grid-list__item, .ty-product-list__item, .grid-list__item"
+      title: ".product-title, .ty-grid-list__item-name a, a.product-title"
+      link: ".product-title, .ty-grid-list__item-name a, a.product-title"
+      price: ".ty-price, .ty-price-num, .product-price"
+    out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible", "out of stock", "sold out", "uitverkocht"]
 
   # --- Themes maison ---
   # Fantasy Sphere et Destock TCG partagent le meme moteur (.product-item-info).

@@ -262,12 +262,11 @@
       }
       tbody tr:active { transform: scale(0.99); }
       tbody tr:last-child td { border-bottom: 0; }
-      /* accent chaud : liseret dore a gauche + halo discret */
+      /* accent chaud : simple liseret dore a gauche (fond neutre, pas de degrade) */
       tr.row--hot td:first-child { box-shadow: none; }
-      tr.row--hot, tr.row--hot:hover td {
-        background: linear-gradient(168deg, rgba(224,173,90,0.10), var(--ink-2));
+      tr.row--hot {
         border-color: var(--line);
-        box-shadow: inset 3px 0 0 var(--gold), 0 12px 30px -20px rgba(224,173,90,0.35);
+        box-shadow: inset 3px 0 0 var(--gold), 0 12px 30px -22px rgba(0,0,0,0.85);
       }
       tbody td { display: block; border: 0; padding: 0; }
       td[data-label]::before { content: none; }

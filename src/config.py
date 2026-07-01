@@ -64,6 +64,14 @@ class AppConfig:
     # casser les constructions par position et rester retro-compatibles.
     include_lang_codes: list[str] = field(default_factory=list)
     site_lang: dict[str, str] = field(default_factory=dict)
+    # Exclusion par TYPE de produit (boosters a l'unite, sleeves, starter decks).
+    # `exclude_type_terms` : exclu si le titre contient l'un de ces termes.
+    # `booster_unit_markers` : termes de "booster a l'unite" -> exclus SEULEMENT si
+    # aucun `bulk_markers` (box/display/boite...) n'est present, pour garder les
+    # Displays / Booster Box. Voir detector._is_excluded_type.
+    exclude_type_terms: list[str] = field(default_factory=list)
+    booster_unit_markers: list[str] = field(default_factory=list)
+    bulk_markers: list[str] = field(default_factory=list)
 
 
 def load_config(path: str | Path | None = None) -> AppConfig:
@@ -79,6 +87,10 @@ def load_config(path: str | Path | None = None) -> AppConfig:
         k.lower()
         for k in defaults.get("include_lang_codes", ["en", "eng", "english", "anglais"])
     ]
+    exclude_types = defaults.get("exclude_types", {}) or {}
+    exclude_type_terms = [t.lower() for t in exclude_types.get("terms", [])]
+    booster_unit_markers = [t.lower() for t in exclude_types.get("single_unit", [])]
+    bulk_markers = [t.lower() for t in exclude_types.get("bulk_markers", [])]
 
     sites: list[SiteConfig] = []
     for s in raw.get("sites", []):
@@ -119,5 +131,8 @@ def load_config(path: str | Path | None = None) -> AppConfig:
         include_lang_codes=include_lang_codes,
         site_keywords={s.name: s.keywords for s in sites if s.keywords is not None},
         site_lang={s.name: s.lang for s in sites if s.lang},
+        exclude_type_terms=exclude_type_terms,
+        booster_unit_markers=booster_unit_markers,
+        bulk_markers=bulk_markers,
         sites=sites,
     )

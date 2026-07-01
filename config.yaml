@@ -76,6 +76,38 @@ defaults:
     - "eng"
     - "english"
     - "anglais"
+  # Exclusion par TYPE de produit : on veut surtout les displays / booster box et
+  # produits scelles interessants, PAS les boosters a l'unite, sleeves et starter
+  # decks (vendus partout, sans interet pour le suivi). Logique : detector._is_excluded_type.
+  exclude_types:
+    # Exclu si le titre contient l'un de ces termes.
+    terms:
+      - "sleeve"
+      - "protège-carte"
+      - "protege-carte"
+      - "protege carte"
+      - "pochette"
+      - "starter deck"
+      - "deck de démarrage"
+      - "deck de demarrage"
+      - "deck débutant"
+      - "deck debutant"
+      - "structure deck"
+    # Boosters a l'unite : exclus SEULEMENT si aucun marqueur de lot (bulk_markers)
+    # n'est present -> garde "Booster Box", "Display ... Booster", "Boite de 24 boosters".
+    single_unit:
+      - "booster"
+      - "blister"
+      - "sachet"
+    bulk_markers:
+      - "box"
+      - "display"
+      - "boîte"
+      - "boite"
+      - "coffret"
+      - "présentoir"
+      - "presentoir"
+      - "carton"
 
 sites:
   # Selecteurs VERIFIES sur la page categorie One Piece (juin 2026).
@@ -384,6 +416,22 @@ sites:
     out_of_stock_markers: []
 
   # --- PrestaShop ---
+  # Agorajeux (FR) : PrestaShop standard. Flag "Rupture de stock" fiable sur chaque
+  # carte. Catalogue mixte FR/EN -> le filtre de langue ecarte les references FR.
+  - name: "Agorajeux"
+    type: generic_html
+    enabled: true
+    url: "https://www.agorajeux.com/fr/265-one-piece-card-game"
+    base_url: "https://www.agorajeux.com"
+    interval_seconds: 180
+    selectors:
+      item: "article.product-miniature, .product-miniature"
+      title: ".product-title a, h3.product-title a, .product-title"
+      link: ".product-title a, a.thumbnail, a.product-thumbnail"
+      price: ".product-price-and-shipping .price, .price"
+    oos_markers_reliable: true
+    out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
+
   - name: "Fantastik"
     type: generic_html
     enabled: true

@@ -17,6 +17,26 @@ def _matches(title: str, keywords: list[str]) -> bool:
     return any(k in low for k in keywords)
 
 
+def _is_excluded_type(title: str, cfg: AppConfig) -> bool:
+    """Vrai si le produit est d'un TYPE qu'on ne veut pas remonter.
+
+    - Termes simples (`exclude_type_terms`) : sleeves, starter decks... -> exclu
+      des qu'un terme apparait dans le titre.
+    - Boosters a l'unite (`booster_unit_markers`, ex. "booster", "blister") :
+      exclus SEULEMENT si le titre ne porte AUCUN marqueur de lot (`bulk_markers`
+      : box, display, boite...). Ainsi "Display ... Booster" et "Booster Box"
+      restent, mais "OP16 ... - Booster FR" (pack a l'unite) est retire.
+    """
+    low = title.lower()
+    if any(t in low for t in cfg.exclude_type_terms):
+        return True
+    if any(u in low for u in cfg.booster_unit_markers) and not any(
+        b in low for b in cfg.bulk_markers
+    ):
+        return True
+    return False
+
+
 def _has_lang_code(title: str, codes: list[str]) -> bool:
     """Vrai si un code de langue (fr, ko, jp...) apparait comme token isole.
 
@@ -46,6 +66,9 @@ def apply_filters(states: list[ProductState], cfg: AppConfig) -> list[ProductSta
     for st in states:
         keywords = cfg.site_keywords.get(st.site, cfg.keywords)
         if not _matches(st.title, keywords):
+            continue
+        # Exclusion par type de produit (booster a l'unite, sleeves, starter decks).
+        if _is_excluded_type(st.title, cfg):
             continue
         # Exclusion par langue (ex. on ne veut que l'anglais -> on retire FR/JP/CN/KR).
         # On scanne le titre + les classes CSS de la fiche (indice de langue). On

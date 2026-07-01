@@ -95,6 +95,43 @@ class DetectorTest(unittest.TestCase):
 
         self.assertEqual(apply_filters([short_title, unrelated_short_title], cfg), [short_title])
 
+    def test_exclude_type_drops_single_boosters_sleeves_and_starters(self) -> None:
+        cfg = AppConfig(
+            telegram_token="",
+            telegram_chat_id="",
+            check_interval=180,
+            check_jitter=45,
+            keywords=["one piece"],
+            hot_keywords=[],
+            exclude_keywords=[],
+            exclude_lang_codes=[],
+            site_keywords={},
+            sites=[],
+            exclude_type_terms=["sleeve", "starter deck", "deck de démarrage"],
+            booster_unit_markers=["booster", "blister"],
+            bulk_markers=["box", "display", "boîte", "boite"],
+        )
+
+        def state(title: str) -> ProductState:
+            return ProductState(site="Shop", title=title, url="https://x.test/" + title[:5])
+
+        kept = {
+            "One Piece OP16 Display FR",            # display -> garde
+            "One Piece Booster Box OP17 ENG",       # booster + box -> garde
+            "One Piece Boîte de 24 Boosters OP15",  # booster + boite -> garde
+            "One Piece OP15 Double Pack",           # ni booster ni starter -> garde
+        }
+        dropped = {
+            "One Piece OP16 - Booster FR",          # booster a l'unite -> exclu
+            "One Piece OP10 Booster VO (blister)",  # blister sans lot -> exclu
+            "One Piece Sleeves Luffy 60p",          # sleeve -> exclu
+            "One Piece Starter Deck ST30",          # starter deck -> exclu
+            "One Piece Deck de démarrage ST29",     # starter deck (FR) -> exclu
+        }
+        states = [state(t) for t in kept | dropped]
+        result = {p.title for p in apply_filters(states, cfg)}
+        self.assertEqual(result, kept)
+
 
 if __name__ == "__main__":
     unittest.main()

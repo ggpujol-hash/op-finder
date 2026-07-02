@@ -1,0 +1,30 @@
+name: Probe (jetable)
+
+# Workflow temporaire pour inspecter la structure d'une page Cloudflare via
+# FlareSolverr. A supprimer une fois les selecteurs cales.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "URL a sonder"
+        required: true
+        default: "https://www.sodgames.be/one-piece-card-game-b145655.html"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    services:
+      flaresolverr:
+        image: ghcr.io/flaresolverr/flaresolverr:latest
+        ports:
+          - 8191:8191
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install httpx beautifulsoup4
+      - name: Probe
+        env:
+          FLARESOLVERR_URL: http://localhost:8191/v1
+        run: python scripts/probe_flaresolverr.py "${{ inputs.url }}"

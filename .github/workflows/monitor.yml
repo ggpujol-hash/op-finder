@@ -5,11 +5,21 @@ name: OP Finder — monitoring
 # relancee toutes les 30 min -> cadence reelle ~1m30, sans dependre du Mac.
 
 on:
+  # GitHub BRIDE fortement le declencheur `schedule` (best-effort) : sur repo
+  # gratuit il peut etre retarde de 1 a 4 h. Repo PUBLIC -> minutes illimitees, on
+  # compense donc par une BOUCLE LONGUE (voir "Monitor loop", ~2 h) qui surveille
+  # en continu pendant tout le run. Le cron sert surtout a garder un run "en
+  # attente" pret a enchainer : on le resserre a */15 pour multiplier les chances
+  # qu'un declenchement passe le bridage. Aucun empilement possible (voir concurrency).
   schedule:
-    - cron: "*/30 * * * *"   # toutes les 30 min (GitHub peut retarder le declenchement)
+    - cron: "*/15 * * * *"
   workflow_dispatch:          # bouton "Run workflow" pour lancer a la main
 
-# Empeche deux executions de tourner en parallele (sinon alertes en double).
+# Un seul run a la fois. cancel-in-progress:false -> un nouveau declenchement
+# attend la fin du run courant ; GitHub ne garde qu'UN SEUL run en attente (les
+# pending plus anciens sont annules). Resultat : au plus 1 run actif + 1 en
+# attente, qui demarre des la fin du precedent -> couverture quasi continue sans
+# jamais empiler les executions, meme avec un cron frequent.
 concurrency:
   group: op-finder-monitor
   cancel-in-progress: false
@@ -23,7 +33,10 @@ permissions:
 jobs:
   monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # Boucle de ~2 h + install/deploiement -> ~2 h 10. Marge sous le plafond dur
+    # de 6 h de GitHub ; un run bloque relache son verrou de concurrency au bout de
+    # 150 min plutot que de tout figer.
+    timeout-minutes: 150
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -90,13 +103,15 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           FLARESOLVERR_URL: http://localhost:8191/v1
         run: |
-          # 16 min de boucle : avec l'install (~5 min) + le deploiement (~2 min)
-          # + l'overhead FlareSolverr, le run total reste < 30 min pour ne PAS
-          # chevaucher le cron suivant (sinon les runs s'empilent et s'annulent).
-          END=$((SECONDS + 960))
+          # Boucle LONGUE (~2 h) : on surveille en continu pendant tout le run pour
+          # combler le bridage du cron. Un passage complet sur tous les sites prend
+          # ~3-5 min (dont les sites Cloudflare via FlareSolverr), + 30 s de pause ->
+          # cadence reelle ~4-6 min par site, contre ~1-4 h avant. Le run suivant
+          # (garde "en attente" par la concurrency) enchaine des la fin de celui-ci.
+          END=$((SECONDS + 7200))
           while [ $SECONDS -lt $END ]; do
             python -m src.main once
-            sleep 60                 # sonde toutes les ~60 s pendant le run
+            sleep 30
           done
 
       # Sauvegarde l'etat pour la prochaine execution (cache toujours mis a jour,

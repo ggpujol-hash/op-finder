@@ -9,6 +9,10 @@ on:
         description: "URL a sonder"
         required: true
         default: "https://www.sodgames.be/one-piece-card-game-b145655.html"
+      item:
+        description: "Selecteur CSS d'item (detail stock)"
+        required: false
+        default: ".block_unique_product"
 
 jobs:
   probe:
@@ -27,4 +31,4 @@ jobs:
       - name: Probe
         env:
           FLARESOLVERR_URL: http://localhost:8191/v1
-        run: python scripts/probe_flaresolverr.py "${{ inputs.url }}"
+        run: python scripts/probe_flaresolverr.py "${{ inputs.url }}" "${{ inputs.item }}"

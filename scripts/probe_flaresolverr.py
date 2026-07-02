@@ -52,16 +52,25 @@ def main() -> None:
             if seen >= 20:
                 break
 
-    # Un bloc produit complet, pour reperer titre/prix/stock.
-    print("\n== Exemple de bloc produit (heuristique) ==")
-    for sel, n in counter.most_common(40):
-        name, _, cls = sel.partition(".")
-        if n >= 6 and cls and any(k in cls.lower() for k in ("product", "item", "grid", "prod")):
-            node = soup.find(name, class_=cls.split("."))
-            if node:
-                text = " ".join(node.get_text(" ", strip=True).split())
-                print(f"  [{sel}] -> {text[:200]}")
-                break
+    # Detail stock : pour un selecteur d'item passe en argv[2], dumper chaque
+    # produit (titre / prix / bouton panier / etiquettes / mots-cles rupture).
+    item_sel = sys.argv[2] if len(sys.argv) > 2 else None
+    if item_sel:
+        print(f"\n== Produits via '{item_sel}' ==")
+        stock_words = ("rupture", "épuisé", "epuise", "indisponible", "stock",
+                       "précommande", "precommande", "preco")
+        for node in soup.select(item_sel):
+            title = node.select_one("h3.nomprod, .nomprod_link, h3, h2")
+            price = node.select_one(".prixprod, .prix, .impact_price")
+            cart = node.select_one("a.addbasket, .addbasket, .block-btn-addbasket")
+            etiq = node.select_one(".container-etiquette, .etiquette")
+            low = node.get_text(" ", strip=True).lower()
+            hits = [w for w in stock_words if w in low]
+            print(f"  - {title.get_text(strip=True)[:45] if title else '?':45} | "
+                  f"prix={price.get_text(strip=True) if price else '-':10} | "
+                  f"cart={'Y' if cart else 'N'} | "
+                  f"etiq={(etiq.get_text(' ',strip=True)[:25] if etiq else '-')!r} | "
+                  f"mots={hits}")
 
 
 if __name__ == "__main__":

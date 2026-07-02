@@ -370,6 +370,7 @@
                 <option value="change">Maj récente</option>
                 <option value="site">Boutique</option>
                 <option value="price">Prix croissant</option>
+                <option value="price_desc">Prix décroissant</option>
               </select>
               <button class="dense" id="dense" type="button" aria-pressed="false" title="Densité d'affichage">Compact</button>
               <input class="search" id="q" type="search" placeholder="Rechercher…" autocomplete="off">
@@ -525,7 +526,10 @@
       // Indicateurs visuels : fleche sur la colonne active, menu deroulant synchronise.
       headers.forEach(h => h.setAttribute('aria-sort',
         h.dataset.sort === state.key ? (state.dir === 1 ? 'ascending' : 'descending') : 'none'));
-      if (sort && ['change', 'site', 'price'].includes(state.key)) sort.value = state.key;
+      if (sort) {
+        if (state.key === 'price') sort.value = state.dir === 1 ? 'price' : 'price_desc';
+        else if (['change', 'site'].includes(state.key)) sort.value = state.key;
+      }
     }
 
     // Sens par defaut au premier clic sur une colonne : texte = A→Z, dates = recent d'abord.
@@ -565,7 +569,8 @@
       filter = b.dataset.f; apply();
     });
     sort?.addEventListener('change', () => {
-      state.key = sort.value; state.dir = defaultDir(sort.value);
+      if (sort.value === 'price_desc') { state.key = 'price'; state.dir = -1; }
+      else { state.key = sort.value; state.dir = defaultDir(sort.value); }
       sortRows(); apply();
     });
 

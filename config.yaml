@@ -490,11 +490,13 @@ sites:
     oos_markers_reliable: true
     out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible", "out of stock", "sold out"]
 
-  # --- CS-Cart ---
-  # SOD Games (BE) : CS-Cart (URL SEO en -bNNNNN.html) protege par Cloudflare
-  # (challenge JS sur toutes les pages, y compris robots.txt). Fetch via
-  # FlareSolverr en CI (unblock). Selecteurs CS-Cart standard (.ty-*) a confirmer
-  # une fois le HTML accessible.
+  # --- Plateforme FR proprietaire (PowerBoutique-like) ---
+  # SOD Games (BE) : protege par Cloudflare (challenge JS sur toutes les pages).
+  # Fetch via FlareSolverr en CI (unblock). Selecteurs verifies via sonde
+  # FlareSolverr : blocs `.block_unique_product`, titre `.nomprod_link`, prix
+  # `.prixprod`. Signal de stock : bouton "Ajouter au panier" (a.addbasket) present
+  # = achetable ; sur cette plateforme il est remplace par un texte de rupture
+  # quand l'article est epuise -> in_stock_selector + marqueurs texte en secours.
   - name: "SOD Games"
     type: generic_html
     enabled: true
@@ -503,11 +505,12 @@ sites:
     base_url: "https://www.sodgames.be"
     interval_seconds: 180
     selectors:
-      item: ".ty-grid-list__item, .ty-product-list__item, .grid-list__item"
-      title: ".product-title, .ty-grid-list__item-name a, a.product-title"
-      link: ".product-title, .ty-grid-list__item-name a, a.product-title"
-      price: ".ty-price, .ty-price-num, .product-price"
-    out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible", "out of stock", "sold out", "uitverkocht"]
+      item: ".block_unique_product, .produits"
+      title: "h3.nomprod .nomprod_link, .nomprod_link, h3.nomprod"
+      link: "a.nomprod_link, a.produits-bloc-image"
+      price: ".prixprod, .impact_price, .prix"
+    in_stock_selector: "a.addbasket"
+    out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible", "sold out", "uitverkocht"]
 
   # --- Themes maison ---
   # Fantasy Sphere et Destock TCG partagent le meme moteur (.product-item-info).

@@ -361,8 +361,10 @@ sites:
     out_of_stock_markers: ["épuisé", "epuise", "sold out", "rupture", "indisponible"]
 
   # Pokeca.NL : Shopify (theme Hulk) livrant l'UE. Chaque carte porte un badge
-  # "Sold Out" (.sold_out) fiable -> oos_markers_reliable. Catalogue majoritaire-
-  # ment One Piece sur cette collection.
+  # rupture (.sold_out) fiable -> oos_markers_reliable. ATTENTION : malgre l'URL
+  # /en/, le site sert souvent la version NEERLANDAISE (titres "boxen", badge
+  # "Uitverkocht") selon la geo/IP du client -> il FAUT les marqueurs NL, sinon
+  # tous les epuises passent en "en stock confirme" (faux positifs).
   - name: "Pokeca"
     type: generic_html
     enabled: true
@@ -375,7 +377,7 @@ sites:
       title: ".product-details .title, .title"
       link: "a.product-info__caption, a[href*='/products/']"
       price: ".current_price .money, .price .money, .money"
-    out_of_stock_markers: ["sold out", "épuisé", "epuise", "rupture", "indisponible"]
+    out_of_stock_markers: ["sold out", "uitverkocht", "niet op voorraad", "épuisé", "epuise", "rupture", "indisponible"]
 
   # Poke-Geek (FR) : Shopify, theme Foxify (.sf__pcard). ATTENTION : le badge
   # "Épuisé" (.prod__tag--soldout) est TOUJOURS dans le DOM (masque en CSS

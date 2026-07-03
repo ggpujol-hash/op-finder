@@ -65,13 +65,19 @@ def run_site_check(site: SiteConfig, cfg: AppConfig, notifier: TelegramNotifier,
     conn = db.connect()
     try:
         adapter = build_adapter(site)
-        states = adapter.collect()
-        states = apply_filters(states, cfg)
+        states = apply_filters(adapter.collect(), cfg)
         items = len(states)
 
         # Panne silencieuse : un site qui retournait des produits et tombe a 0
         # (HTTP 200 mais selecteurs casses) ne doit pas rester "vert" a items=0.
         prev_items = db.last_successful_items(conn, site.name)
+        # Throttle passager : certains sites renvoient 0 produit quand l'IP CI est
+        # sollicitee trop vite (page vide, pas d'erreur HTTP). Avant de crier a la
+        # panne, on retente une fois apres une courte pause.
+        if items == 0 and prev_items:
+            time.sleep(5)
+            states = apply_filters(adapter.collect(), cfg)
+            items = len(states)
         if items == 0 and prev_items:
             db.log_check(conn, site.name, ok=False, items=0,
                          message=f"0 produit (precedent : {prev_items}) — selecteurs casses ?")

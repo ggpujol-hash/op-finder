@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
@@ -21,6 +22,10 @@ from ..models import ProductState, clean_price, normalize_product_url
 from .base import Adapter
 
 log = logging.getLogger("adapter.generic")
+
+# Delai (s) entre deux fetchs de pagination : evite le throttle anti-bot qui
+# coupe la pagination sur les IP datacenter (cf. Poke-Geek).
+PAGE_FETCH_DELAY = 2.0
 
 
 def _select_one_text(node, selector: str | None) -> str | None:
@@ -223,6 +228,10 @@ class GenericHtmlAdapter(Adapter):
             url = page_url(self.site.url, page, self.site)
             if url in first_page_urls:
                 continue
+            # Pause entre pages : plusieurs fetchs en rafale font throttler certains
+            # sites sur les IP datacenter (ex. Poke-Geek renvoie 0 des la 2e requete
+            # rapprochee -> pagination coupee). Un petit delai evite le blocage.
+            time.sleep(PAGE_FETCH_DELAY)
             try:
                 html = self.fetch_html(url)
             except httpx.HTTPStatusError as exc:
@@ -248,6 +257,7 @@ class GenericHtmlAdapter(Adapter):
 
         linked_urls = pagination_urls(first_html, self.site.url, self.site)
         for url in linked_urls:
+            time.sleep(PAGE_FETCH_DELAY)
             self._append_new_products(products, seen_urls, self.fetch_html(url))
 
         # Certains PrestaShop n'exposent pas de liens <a href> pour les pages

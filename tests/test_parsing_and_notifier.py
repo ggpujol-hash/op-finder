@@ -297,7 +297,9 @@ class ParsingAndNotifierTest(unittest.TestCase):
                 fetched_urls.append(url)
                 return pages[url]
 
-        products = FakeAdapter(site).collect()
+        from unittest.mock import patch
+        with patch("src.adapters.generic_html.time.sleep"):
+            products = FakeAdapter(site).collect()
 
         self.assertEqual([p.url for p in products], [
             "https://example.com/p1",

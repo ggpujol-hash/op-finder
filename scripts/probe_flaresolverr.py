@@ -33,14 +33,20 @@ def main() -> None:
     print("[echantillon titres collectes]")
     for p in prods[:20]:
         print("   -", repr(p.title))
-    # Diagnostic par etape de filtre sur les produits collectes.
-    from src.detector import _matches, _is_excluded_type, _has_lang_code
-    kw = cfg.keywords
-    n_kw = sum(1 for p in prods if _matches(p.title, kw))
-    n_type = sum(1 for p in prods if _is_excluded_type(p.title, cfg))
-    n_lang = sum(1 for p in prods if _has_lang_code(f"{p.title} {p.tags}", cfg.exclude_lang_codes))
-    n_exkw = sum(1 for p in prods if _matches(f"{p.title} {p.tags}", cfg.exclude_keywords))
-    print(f"[filtres] passe keywords={n_kw} | exclus type={n_type} | exclus lang_code={n_lang} | exclus exclude_kw={n_exkw}")
+    # Diagnostic detaille sur un produit anglais qui DEVRAIT etre garde.
+    from src.detector import _matches, _is_excluded_type, _has_lang_code, _url_has_lang_code
+    target = next((p for p in prods if 'op-06' in p.title.lower() and 'anglais' in p.title.lower()), None)
+    if target:
+        lt = f"{target.title} {target.tags}"
+        print("[OP-06] title:", repr(target.title))
+        print("[OP-06] url:", target.url)
+        print("[OP-06] tags:", repr(target.tags))
+        print("[OP-06] keyword_ok:", _matches(target.title, cfg.keywords))
+        print("[OP-06] type_excl:", _is_excluded_type(target.title, cfg))
+        print("[OP-06] exclude_kw:", _matches(lt, cfg.exclude_keywords))
+        print("[OP-06] lang_code(title+tags):", _has_lang_code(lt, cfg.exclude_lang_codes))
+        print("[OP-06] url_lang_code:", _url_has_lang_code(target.url, cfg.exclude_lang_codes))
+        print("[OP-06] kept alone:", len(apply_filters([target], cfg)) == 1)
 
 
 if __name__ == "__main__":

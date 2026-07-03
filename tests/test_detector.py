@@ -69,6 +69,34 @@ class DetectorTest(unittest.TestCase):
 
         self.assertEqual(apply_filters([english, japanese], cfg), [english])
 
+    def test_region_locale_prefix_not_treated_as_language(self) -> None:
+        # Shopify sert parfois une locale region ("/fr-us/", "/en-gb/") selon la
+        # geo du visiteur (ex. IP datacenter CI). Le "fr" de "fr-us" ne doit PAS
+        # faire exclure un produit anglais, sinon tout le catalogue disparait.
+        cfg = AppConfig(
+            telegram_token="",
+            telegram_chat_id="",
+            check_interval=180,
+            check_jitter=45,
+            keywords=["one piece"],
+            hot_keywords=[],
+            exclude_keywords=[],
+            exclude_lang_codes=["fr", "jp", "jap"],
+            site_keywords={},
+            sites=[],
+        )
+        english = ProductState(
+            site="Shop",
+            title="Display One Piece OP-06 (Anglais)",
+            url="https://poke-geek.fr/fr-us/products/display-one-piece-op06-anglais",
+        )
+        japanese = ProductState(
+            site="Shop",
+            title="Display One Piece OP-16 Japonais",
+            url="https://poke-geek.fr/fr-us/products/display-one-piece-op16-jp",
+        )
+        self.assertEqual(apply_filters([english, japanese], cfg), [english])
+
     def test_site_specific_keywords_can_match_short_product_names(self) -> None:
         cfg = AppConfig(
             telegram_token="",

@@ -53,7 +53,11 @@ def _url_has_lang_code(url: str, codes: list[str]) -> bool:
     if not codes:
         return False
     segments = [s for s in urlsplit(url).path.lower().split("/") if s]
-    if segments and segments[0] in {"fr", "en", "it", "de", "es"}:
+    # Retire un prefixe de locale Shopify ("fr", "en", mais aussi "fr-us",
+    # "en-gb"...) : c'est la locale D'AFFICHAGE choisie par le site selon la geo du
+    # visiteur (ex. l'IP datacenter CI recoit /fr-us/), pas la langue du PRODUIT.
+    # Sans ca, "fr-us" laissait fuiter le token "fr" -> tout le catalogue exclu.
+    if segments and re.fullmatch(r"[a-z]{2}(-[a-z]{2})?", segments[0]):
         segments = segments[1:]
     tokens = set(re.findall(r"[a-z0-9]+", " ".join(segments)))
     return any(c in tokens for c in codes)

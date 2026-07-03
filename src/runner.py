@@ -107,7 +107,10 @@ def run_site_check(site: SiteConfig, cfg: AppConfig, notifier: TelegramNotifier,
         # apres le seed initial) : on peuple sans alerter, comme un seed, pour ne
         # pas envoyer tout son catalogue existant en "NOUVEAU" d'un coup. Les
         # produits reellement nouveaux aux passages suivants alerteront normalement.
-        site_seed = prev_items is None
+        # `not prev_items` couvre None (jamais vu) ET 0 : une boutique amorcee a
+        # vide (selecteurs a caler, blocage CI...) qui se met soudain a renvoyer son
+        # catalogue ne doit PAS le deverser en alertes -> on la (re)seed en silence.
+        site_seed = not prev_items
         quiet = seed or site_seed
 
         sent = 0

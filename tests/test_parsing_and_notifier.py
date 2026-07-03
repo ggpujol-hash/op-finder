@@ -501,6 +501,56 @@ class ParsingAndNotifierTest(unittest.TestCase):
                 self.assertEqual([e.kind for e in notifier.sent], ["new"])
                 self.assertEqual([e.state.title for e in notifier.sent], ["Display OP-13"])
 
+    def test_shop_seeded_empty_then_catalog_does_not_burst(self) -> None:
+        # Boutique amorcee A VIDE (0 produit : selecteurs a caler, blocage CI...)
+        # qui se met soudain a renvoyer tout son catalogue -> re-seed SILENCIEUX,
+        # pas 40 alertes d'un coup. Seuls les produits apparus ENSUITE alertent.
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from src import runner, db as dbmod
+        from src.adapters.base import Adapter
+
+        box = {"list": []}
+
+        class FakeAdapter(Adapter):
+            def collect(self):
+                return list(box["list"])
+
+        class FakeNotifier:
+            def __init__(self):
+                self.sent = []
+
+            def send(self, ev):
+                self.sent.append(ev)
+                return True
+
+        site = SiteConfig(name="FixedShop", type="generic_html", url="https://e.com",
+                          base_url="https://e.com",
+                          selectors={"item": ".p", "title": ".t", "link": "a"})
+        cfg = _make_cfg()
+        notifier = FakeNotifier()
+        with tempfile.TemporaryDirectory() as d:
+            with patch.object(dbmod, "DB_PATH", Path(d) / "t.db"), \
+                 patch.object(runner, "build_adapter", lambda s: FakeAdapter(s)):
+                dbmod.init_db()
+                # 1er passage : 0 produit (amorcage a vide).
+                runner.run_site_check(site, cfg, notifier)
+                self.assertEqual(notifier.sent, [])
+                # 2e passage : le catalogue apparait d'un coup -> AUCUNE alerte.
+                box["list"] = [
+                    ProductState("FixedShop", f"Display OP-{i}", f"https://e.com/op{i}",
+                                 stock_status="confirmed")
+                    for i in range(10)
+                ]
+                runner.run_site_check(site, cfg, notifier)
+                self.assertEqual(notifier.sent, [])
+                # 3e passage : un produit reellement nouveau -> une seule alerte.
+                box["list"].append(ProductState("FixedShop", "Display OP-99",
+                                                 "https://e.com/op99", stock_status="confirmed"))
+                runner.run_site_check(site, cfg, notifier)
+                self.assertEqual([e.state.title for e in notifier.sent], ["Display OP-99"])
+
     def test_last_successful_items_ignores_failed_checks(self) -> None:
         conn = _make_conn()
         db.log_check(conn, "Shop", ok=True, items=12, message="ok")

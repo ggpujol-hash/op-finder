@@ -30,6 +30,17 @@ def main() -> None:
     prods = ad.collect()
     kept = apply_filters(list(prods), cfg)
     print(f"[collect] total={len(prods)}  kept={len(kept)}")
+    print("[echantillon titres collectes]")
+    for p in prods[:20]:
+        print("   -", repr(p.title))
+    # Diagnostic par etape de filtre sur les produits collectes.
+    from src.detector import _matches, _is_excluded_type, _has_lang_code
+    kw = cfg.keywords
+    n_kw = sum(1 for p in prods if _matches(p.title, kw))
+    n_type = sum(1 for p in prods if _is_excluded_type(p.title, cfg))
+    n_lang = sum(1 for p in prods if _has_lang_code(f"{p.title} {p.tags}", cfg.exclude_lang_codes))
+    n_exkw = sum(1 for p in prods if _matches(f"{p.title} {p.tags}", cfg.exclude_keywords))
+    print(f"[filtres] passe keywords={n_kw} | exclus type={n_type} | exclus lang_code={n_lang} | exclus exclude_kw={n_exkw}")
 
 
 if __name__ == "__main__":

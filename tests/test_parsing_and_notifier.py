@@ -145,6 +145,29 @@ class ParsingAndNotifierTest(unittest.TestCase):
         self.assertFalse(by_url["https://example.com/eb02"].available)
         self.assertEqual(by_url["https://example.com/op10"].stock_status, "confirmed")
 
+    def test_out_of_stock_modifier_class_on_card(self) -> None:
+        # ONY TCG : la carte epuisee porte la classe modificateur
+        # `product-card--out-of-stock` (pas `outofstock` brut) et un label
+        # localise "Esaurito"/"Sold out". La classe doit suffire, meme si la
+        # locale rendue ne contient pas le marqueur texte attendu.
+        site = SiteConfig(
+            name="ONY", type="generic_html",
+            url="https://example.com", base_url="https://example.com",
+            selectors={"item": ".product-card", "title": ".title", "link": "a"},
+        )
+        html = """
+        <article class="product-card product-card--out-of-stock">
+          <a href="/eb06"><span class="title">EB-06 Extra Booster Box</span></a>
+        </article>
+        <article class="product-card">
+          <a href="/op11"><span class="title">OP-11 Box</span></a>
+        </article>
+        """
+        by_url = {p.url: p for p in parse_products(html, site)}
+        self.assertEqual(by_url["https://example.com/eb06"].stock_status, "out")
+        self.assertFalse(by_url["https://example.com/eb06"].available)
+        self.assertTrue(by_url["https://example.com/op11"].available)
+
     def test_preorder_detected_from_url_slug(self) -> None:
         # Cas Shopify : la carte ne porte aucun marqueur, mais le slug d'URL trahit
         # la precommande -> doit etre classe "preorder", pas "inferred".

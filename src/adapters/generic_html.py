@@ -82,6 +82,15 @@ def _has_marker(haystack: str, markers) -> bool:
     return any(_norm(m) in norm for m in markers)
 
 
+def _has_oos_class(classes) -> bool:
+    """Detecte une classe de rupture sur la carte : `outofstock` (WooCommerce) ou
+    toute variante contenant "out of stock" apres normalisation des separateurs
+    (ex. `product-card--out-of-stock` chez ONY TCG). Signal fiable et independant
+    de la langue."""
+    return any(_norm(c).replace(" ", "") in ("outofstock",) or "out of stock" in _norm(c)
+               for c in classes)
+
+
 def _stock_status(node, site: SiteConfig, url: str = "") -> str:
     text = node.get_text(" ", strip=True)
     classes = node.get("class") or []
@@ -93,11 +102,15 @@ def _stock_status(node, site: SiteConfig, url: str = "") -> str:
     #    rupture, par fiabilite : classe WooCommerce `outofstock`, marqueur texte
     #    (separateurs normalises -> "out of stock" matche "Out-of-Stock"), ou bouton
     #    panier declare (in_stock_selector) mais absent de la carte.
-    # `outofstock` sur la fiche (WooCommerce li.product) ou element de
-    # disponibilite `.stock.out-of-stock`. NB : on exige le parent `.stock` pour
-    # ne PAS confondre avec une classe d'icone (ex. PrestaShop "material-icons
-    # out-of-stock" presente sur chaque carte).
-    if "outofstock" in classes or node.select_one(".stock.out-of-stock, .stock.outofstock"):
+    # `outofstock` sur la fiche (WooCommerce li.product), variante modificateur
+    # `product-card--out-of-stock` (PrestaShop/ONY TCG), ou element de
+    # disponibilite `.stock.out-of-stock`. La classe de la carte est un signal
+    # FIABLE et independant de la langue (contrairement au texte "Esaurito"/"Sold
+    # out" qui depend de la locale rendue). NB : on ne teste que les classes de la
+    # carte elle-meme, pas des descendants, pour ne PAS confondre avec une classe
+    # d'icone (ex. PrestaShop "material-icons out-of-stock" presente sur chaque
+    # carte) -> pour ces icones descendantes on exige le parent `.stock`.
+    if _has_oos_class(classes) or node.select_one(".stock.out-of-stock, .stock.outofstock"):
         return "out"
     if _has_marker(text, site.out_of_stock_markers):
         return "out"

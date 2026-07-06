@@ -128,6 +128,62 @@ def log_alert(conn: sqlite3.Connection, st: ProductState, kind: str, detail: str
     )
 
 
+def last_check_ok(conn: sqlite3.Connection, site: str) -> bool | None:
+    """Statut (ok/ko) du DERNIER check d'un site, tous statuts confondus.
+
+    Sert a detecter une transition de sante (sain -> casse -> retabli) pour
+    pousser une alerte : un scraper aveugle (0 produit, selecteurs casses,
+    Cloudflare) est un angle mort silencieux qui fait rater tous les restocks du
+    site. None = jamais checke."""
+    row = conn.execute(
+        "SELECT ok FROM checks WHERE site = ? ORDER BY ran_at DESC LIMIT 1", (site,)
+    ).fetchone()
+    return bool(row["ok"]) if row else None
+
+
+def seconds_since_last_check(conn: sqlite3.Connection, site: str) -> float | None:
+    """Secondes ecoulees depuis le dernier check (ok OU ko) d'un site.
+
+    Permet d'honorer `interval_seconds` par site meme en mode `once` (boucle CI) :
+    on evite de re-checker un site trop tot, ce qui liberait du temps pour les
+    boutiques rapides au lieu de tout serialiser derriere les sites Cloudflare
+    lents (FlareSolverr). None = jamais checke."""
+    row = conn.execute(
+        "SELECT ran_at FROM checks WHERE site = ? ORDER BY ran_at DESC LIMIT 1", (site,)
+    ).fetchone()
+    if not row:
+        return None
+    last = datetime.fromisoformat(row["ran_at"])
+    return (datetime.now(timezone.utc) - last).total_seconds()
+
+
+def available_map(conn: sqlite3.Connection, site: str) -> dict[str, bool]:
+    """Disponibilite actuelle en base, par cle produit, pour un site.
+
+    Sert au garde-fou anti-bascule massive : si un check fait passer d'un coup la
+    quasi-totalite des produits dispo -> rupture, c'est presque surement une
+    regression de selecteur (ex. `in_stock_selector` dont la classe a change),
+    pas un vrai sell-out global. On l'ignore pour ne pas emettre plus tard une
+    tempete de faux restocks au retour a la normale."""
+    return {
+        row["key"]: bool(row["available"])
+        for row in conn.execute(
+            "SELECT key, available FROM products WHERE site = ?", (site,)
+        )
+    }
+
+
+def checkpoint() -> None:
+    """Fusionne le WAL dans le fichier principal (PRAGMA wal_checkpoint TRUNCATE).
+
+    En CI l'etat n'est mis en cache que via `data/op_finder.db` (pas le `-wal`) :
+    sans checkpoint, la queue de transactions du WAL n'est pas sauvegardee et
+    l'etat restaure au run suivant est incomplet (re-alertes / anti-doublon
+    perdu)."""
+    with connect() as conn:
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+
 def last_successful_items(conn: sqlite3.Connection, site: str) -> int | None:
     """Nb de produits du dernier check REUSSI d'un site (None si jamais reussi).
 
@@ -141,7 +197,7 @@ def last_successful_items(conn: sqlite3.Connection, site: str) -> int | None:
 
 
 def reconcile_missing(
-    conn: sqlite3.Connection, site: str, seen_keys: set[str], threshold: int = 3
+    conn: sqlite3.Connection, site: str, seen_keys: set[str], threshold: int = 2
 ) -> int:
     """Bascule en rupture les produits d'un site absents de N checks successifs.
 
@@ -150,6 +206,13 @@ def reconcile_missing(
     en base : leur retour en stock ne declencherait jamais de restock. On
     incremente un compteur d'absences (remis a 0 des qu'on les revoit) et, au seuil,
     on les marque 'out' pour qu'un retour ulterieur soit bien detecte.
+
+    Seuil = 2 (et non 3) : les displays convoites partent vite et sont souvent
+    retires du listing des l'epuisement ; les marquer 'out' plus tot garantit
+    qu'un restock rapide sera bien detecte. Le faux risque (produit juste absent
+    d'une page a cause d'un scrape partiel) est deja couvert en amont par
+    RECONCILE_MIN_RATIO cote runner : reconcile n'est appele que sur un scrape
+    juge complet.
 
     A n'appeler que sur un check REUSSI et non vide (sinon une panne de selecteurs
     ferait basculer tout le catalogue en rupture). Retourne le nb bascule.

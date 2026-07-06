@@ -478,7 +478,9 @@ sites:
     unblock: true
     url: "https://oupi.eu/fr/382-one-piece"
     base_url: "https://oupi.eu"
-    interval_seconds: 180
+    # Cloudflare/FlareSolverr : lent a resoudre -> cadence espacee pour ne pas
+    # serialiser les boutiques rapides derriere lui (cf. _due_for_check).
+    interval_seconds: 600
     selectors:
       item: "article.product-miniature, .product-miniature, .js-product-miniature"
       title: ".product-title a, h3 a, h2 a, .product-name"
@@ -503,7 +505,8 @@ sites:
     unblock: true
     url: "https://www.sodgames.be/one-piece-card-game-b145655.html"
     base_url: "https://www.sodgames.be"
-    interval_seconds: 180
+    # Cloudflare/FlareSolverr : cadence espacee (cf. _due_for_check).
+    interval_seconds: 600
     selectors:
       item: ".block_unique_product, .produits"
       title: "h3.nomprod .nomprod_link, .nomprod_link, h3.nomprod"
@@ -536,7 +539,8 @@ sites:
     url: "https://www.destocktcg.fr/jeux-de-cartes-a-collectionner/one-piece-card-game/"
     base_url: "https://www.destocktcg.fr"
     oos_markers_reliable: true   # Magento : epuises marques "Réassort"/"Rupture"
-    interval_seconds: 180
+    # Cloudflare/FlareSolverr : cadence espacee (cf. _due_for_check).
+    interval_seconds: 600
     selectors:
       item: "div.product-item-info"
       title: ".product-item-name a"
@@ -632,7 +636,8 @@ sites:
     unblock: true
     url: "https://shop.inerdini.it/en/categoria-prodotto/one-piece-tcg/booster-box/"
     base_url: "https://shop.inerdini.it"
-    interval_seconds: 180
+    # Cloudflare/FlareSolverr : cadence espacee (cf. _due_for_check).
+    interval_seconds: 600
     max_pages: 4
     page_style: path
     selectors:

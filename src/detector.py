@@ -37,6 +37,20 @@ def _is_excluded_type(title: str, cfg: AppConfig) -> bool:
     return False
 
 
+# Lettres accentuees du francais. Un nom de produit One Piece ANGLAIS n'en porte
+# jamais (les sets EN sont en ASCII : "The Azure Sea's Seven", "Legacy of the
+# Master"...). Leur presence dans le titre = reference FR/localisee -> a ecarter
+# quand on ne veut que l'anglais. Complete les marqueurs texte pour les noms de
+# set FR qui ne portent ni "francais" ni code langue (ex. "L'Heure de la Bataille
+# Decisive", "Heroines Edition" FR accentue).
+_FRENCH_ACCENTS = set("àâäéèêëîïôöùûüÿçœæ")
+
+
+def _has_french_accent(text: str) -> bool:
+    low = text.lower()
+    return any(ch in _FRENCH_ACCENTS for ch in low)
+
+
 def _has_lang_code(title: str, codes: list[str]) -> bool:
     """Vrai si un code de langue (fr, ko, jp...) apparait comme token isole.
 
@@ -79,6 +93,14 @@ def apply_filters(states: list[ProductState], cfg: AppConfig) -> list[ProductSta
         # scanne aussi le slug URL en ignorant le premier segment de locale (/fr/, /en/...).
         lang_text = f"{st.title} {st.tags}"
         if cfg.exclude_keywords and _matches(lang_text, cfg.exclude_keywords):
+            continue
+        # Nom de set FR non tague : accents francais (é, à, ç...) dans le TITRE
+        # (pas les tags CSS, qui sont ASCII). Actif seulement quand le francais est
+        # exclu. Ecarte "L'Heure de la Bataille Décisive" la ou "français"/"fr"
+        # echouent, sans toucher a l'anglais (ASCII). Les noms FR SANS accent
+        # ("Les Sept de la Mer d'Azur", "Successeurs") sont couverts par les
+        # marqueurs "de la"/"du"/"successeur" dans exclude_keywords.
+        if "fr" in cfg.exclude_lang_codes and _has_french_accent(st.title):
             continue
         if _has_lang_code(lang_text, cfg.exclude_lang_codes):
             continue

@@ -56,6 +56,14 @@ defaults:
     - "coréen"
     - "coreen"
     - "korean"
+    # Articles/mots FR presents dans les noms de set francais SANS accent (donc
+    # non captes par le detecteur d'accents) mais absents des noms anglais :
+    # "OP14 - Les Sept de la Mer d'Azur", "OP13 - Successeurs". Espaces inclus
+    # pour ne pas matcher a l'interieur d'un mot (ex. " du " vs "produit").
+    - "de la "
+    - "de l'"
+    - " du "
+    - "successeur"
   # Codes de langue detectes comme tokens isoles (ex. "One Piece FR", "- KO -").
   # Certains shops (Play-In, Ludotrotter) decrivent en francais mais taguent la
   # vraie langue ainsi : "EN" reste, "FR/KO/JP/CN" sont retires.

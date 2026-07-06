@@ -123,6 +123,38 @@ class DetectorTest(unittest.TestCase):
 
         self.assertEqual(apply_filters([short_title, unrelated_short_title], cfg), [short_title])
 
+    def test_french_set_names_excluded_english_kept(self) -> None:
+        # Cas UltraJeux : FR et EN ne different que par la langue du NOM DE SET,
+        # sans marqueur "francais"/"fr". On doit ecarter le FR (accents OU articles
+        # "de la"/"du"/"successeur") et garder l'anglais (ASCII).
+        cfg = AppConfig(
+            telegram_token="", telegram_chat_id="", check_interval=180, check_jitter=45,
+            keywords=["one piece", "op1", "display"],
+            hot_keywords=[],
+            exclude_keywords=["français", "de la ", "de l'", " du ", "successeur"],
+            exclude_lang_codes=["fr", "jp"],
+            site_keywords={}, sites=[],
+        )
+
+        def state(title: str) -> ProductState:
+            return ProductState(site="UltraJeux", title=title,
+                                url="https://x.test/" + title[:8].replace(" ", ""))
+
+        french = [
+            "Display OP14 - Les Sept de la Mer d'Azur",   # article "de la"
+            "OP16 - L'Heure de la Bataille Décisive",     # accent + "de la"
+            "OP12 - L'Héritage du Maître",                # accent + " du "
+            "OP13 - Successeurs",                          # "successeur", sans accent
+        ]
+        english = [
+            "Display OP14 - The Azure Sea's Seven",
+            "OP16 - The Time of Battle",
+            "OP12 - Legacy of the Master",                # "of the Master" != " du "
+            "OP13 - Carrying On His Will",
+        ]
+        kept = {p.title for p in apply_filters([state(t) for t in french + english], cfg)}
+        self.assertEqual(kept, set(english))
+
     def test_exclude_type_drops_single_boosters_sleeves_and_starters(self) -> None:
         cfg = AppConfig(
             telegram_token="",

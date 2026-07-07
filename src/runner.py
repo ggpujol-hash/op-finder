@@ -34,6 +34,12 @@ RECONCILE_MIN_RATIO = 0.6
 # panier changee) plutot qu'un vrai sell-out global -> check ignore.
 MASS_OOS_RATIO = 0.8
 MASS_OOS_MIN = 5
+# Alerte de sante (site hors ligne) : on n'annonce une panne qu'apres ce nombre
+# de checks KO consecutifs. Beaucoup de boutiques blippent hors-ligne quelques
+# minutes (Cloudflare passager, throttle CI, timeout) et reviennent seules au
+# passage suivant : les alerter provoquait un spam 'hors ligne' / 'operationnel'
+# sans utilite. Le retour n'est signale que si la panne avait ete annoncee.
+HEALTH_DOWN_AFTER = 5
 
 
 def _cooldown_hours(kind: str) -> float:
@@ -96,20 +102,30 @@ def run_site_check(site: SiteConfig, cfg: AppConfig, notifier: TelegramNotifier,
         return 0
     log.info("%s : %s", "Seed" if seed else "Check", site.name)
     conn = db.connect()
-    # Statut du dernier check AVANT ce passage : sert a detecter une transition de
-    # sante (sain <-> casse) pour pousser une alerte. On l'enregistre au fil des
-    # points de sortie via _record_check().
-    prev_ok = db.last_check_ok(conn, site.name)
 
     def _record_check(ok: bool, items: int, message: str) -> None:
+        # Nombre d'echecs consecutifs AVANT ce check (l'insertion du check courant
+        # vient juste apres) : sert a n'alerter qu'apres une panne soutenue.
+        fails_before = db.consecutive_failures(conn, site.name)
         db.log_check(conn, site.name, ok=ok, items=items, message=message)
-        # Alerte de sante uniquement sur TRANSITION, hors seed, pour ne pas spammer.
-        if seed or prev_ok is None:
+        if seed:
             return
-        if prev_ok and not ok:
-            notifier.send_text(f"⚠️ <b>{site.name}</b> ne repond plus — {message}")
-        elif not prev_ok and ok:
-            notifier.send_text(f"✅ <b>{site.name}</b> de nouveau operationnel ({items} produits)")
+        if not ok:
+            # On n'annonce la panne qu'au moment ou elle devient soutenue (exactement
+            # au franchissement du seuil, pour n'alerter qu'une fois). Un blip isole
+            # (1-2 echecs) revient seul et reste silencieux.
+            if fails_before + 1 == HEALTH_DOWN_AFTER:
+                notifier.send_text(
+                    f"⚠️ <b>{site.name}</b> hors ligne depuis {HEALTH_DOWN_AFTER} checks — {message}"
+                )
+        else:
+            # Retour operationnel : signale UNIQUEMENT si la panne avait ete annoncee
+            # (echecs consecutifs >= seuil). Un simple blip jamais annonce ne genere
+            # donc pas non plus de '_de nouveau operationnel_'.
+            if fails_before >= HEALTH_DOWN_AFTER:
+                notifier.send_text(
+                    f"✅ <b>{site.name}</b> de nouveau operationnel ({items} produits)"
+                )
 
     try:
         adapter = build_adapter(site)

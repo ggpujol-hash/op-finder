@@ -124,24 +124,50 @@ class RunnerRobustnessTest(unittest.TestCase):
         # Pas de canal -> rien a re-tenter : on journalise pour ne pas re-traiter.
         self.assertEqual(len(self._alerts()), 1)
 
-    def test_health_alert_on_broken_then_recovered(self) -> None:
+    def test_health_alert_only_after_sustained_outage(self) -> None:
+        from src.runner import HEALTH_DOWN_AFTER
         notifier = FakeNotifier()
         url = "https://x.test/op17"
         self.holder.states = [_prod(url)]
-        self._run(notifier)                       # 1er check OK (prev_ok None -> muet)
+        self._run(notifier)                       # 1er check OK -> muet
         self.assertEqual(notifier.texts, [])
 
         import httpx
         self.holder.raises = httpx.ConnectError("boom")
-        self._run(notifier)                       # tombe en panne -> alerte
+        # Les premiers echecs (sous le seuil) restent silencieux : un blip revient seul.
+        for _ in range(HEALTH_DOWN_AFTER - 1):
+            self._run(notifier)
+            self.assertEqual(notifier.texts, [], "un blip ne doit pas alerter")
+        # Au franchissement du seuil, une (seule) alerte de panne part.
+        self._run(notifier)
         self.assertEqual(len(notifier.texts), 1)
-        self.assertIn("ne repond plus", notifier.texts[0])
+        self.assertIn("hors ligne", notifier.texts[0])
+        # Un echec supplementaire ne re-alerte pas (pas de spam de rappel).
+        self._run(notifier)
+        self.assertEqual(len(notifier.texts), 1)
 
         self.holder.raises = None
         self.holder.states = [_prod(url)]
-        self._run(notifier)                       # retabli -> alerte
+        self._run(notifier)                       # retabli apres panne annoncee -> alerte
         self.assertEqual(len(notifier.texts), 2)
         self.assertIn("operationnel", notifier.texts[1])
+
+    def test_health_blip_stays_silent(self) -> None:
+        """Un site qui blippe hors-ligne 1-2 checks puis revient ne genere aucune
+        alerte (ni panne ni retour) — c'etait la source du spam."""
+        from src.runner import HEALTH_DOWN_AFTER
+        notifier = FakeNotifier()
+        url = "https://x.test/op17"
+        self.holder.states = [_prod(url)]
+        self._run(notifier)                       # OK
+        import httpx
+        self.holder.raises = httpx.ConnectError("boom")
+        for _ in range(HEALTH_DOWN_AFTER - 1):     # blip sous le seuil
+            self._run(notifier)
+        self.holder.raises = None                  # revient seul
+        self.holder.states = [_prod(url)]
+        self._run(notifier)
+        self.assertEqual(notifier.texts, [])
 
     def test_mass_oos_regression_is_ignored(self) -> None:
         notifier = FakeNotifier()
@@ -196,6 +222,16 @@ class DbHelpersTest(unittest.TestCase):
         self.assertIs(db.last_check_ok(self.conn, "S"), True)
         db.log_check(self.conn, "S", ok=False, items=0, message="boom")
         self.assertIs(db.last_check_ok(self.conn, "S"), False)
+
+    def test_consecutive_failures(self) -> None:
+        self.assertEqual(db.consecutive_failures(self.conn, "S"), 0)
+        db.log_check(self.conn, "S", ok=True, items=5)
+        self.assertEqual(db.consecutive_failures(self.conn, "S"), 0)
+        db.log_check(self.conn, "S", ok=False, items=0)
+        db.log_check(self.conn, "S", ok=False, items=0)
+        self.assertEqual(db.consecutive_failures(self.conn, "S"), 2)
+        db.log_check(self.conn, "S", ok=True, items=5)  # remet le compteur a zero
+        self.assertEqual(db.consecutive_failures(self.conn, "S"), 0)
 
     def test_reconcile_threshold_is_two(self) -> None:
         st = ProductState(site="S", title="OP17 Display", url="https://x.test/op17")

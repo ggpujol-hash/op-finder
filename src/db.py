@@ -141,6 +141,25 @@ def last_check_ok(conn: sqlite3.Connection, site: str) -> bool | None:
     return bool(row["ok"]) if row else None
 
 
+def consecutive_failures(conn: sqlite3.Connection, site: str) -> int:
+    """Nombre de checks KO consecutifs les plus recents d'un site (0 si le dernier
+    est OK ou si jamais checke).
+
+    Sert a n'annoncer une panne qu'apres plusieurs echecs d'affilee : une boutique
+    qui blippe hors-ligne quelques minutes (Cloudflare passager, throttle, timeout)
+    revient seule au check suivant et ne doit pas generer d'alerte 'hors ligne'
+    puis '_de nouveau operationnel_' — c'etait la source du spam."""
+    n = 0
+    for row in conn.execute(
+        "SELECT ok FROM checks WHERE site = ? ORDER BY ran_at DESC, id DESC LIMIT 100",
+        (site,),
+    ):
+        if row["ok"]:
+            break
+        n += 1
+    return n
+
+
 def seconds_since_last_check(conn: sqlite3.Connection, site: str) -> float | None:
     """Secondes ecoulees depuis le dernier check (ok OU ko) d'un site.
 

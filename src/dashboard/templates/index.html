@@ -129,8 +129,20 @@
     .search { background: var(--ink); border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px 12px; color: var(--parch); font-family: inherit; font-size: 13px; width: 170px; transition: border-color .2s, width .25s; }
     .search::placeholder { color: var(--muted); }
     .search:focus { outline: none; border-color: var(--gold); width: 210px; }
-    .sort { background: var(--ink); border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px 10px; color: var(--parch); font: 13px "Hanken Grotesk", system-ui, sans-serif; }
-    .sort:focus { outline: none; border-color: var(--gold); }
+    /* Menu de tri custom : le <select> natif rendait mal (popup systeme blanc). */
+    .sortx { position: relative; }
+    .sortx-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--ink); border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px 12px; color: var(--parch); font: 13px "Hanken Grotesk", system-ui, sans-serif; cursor: pointer; transition: border-color .18s, color .18s; }
+    .sortx-btn:hover { border-color: var(--line); }
+    .sortx-btn:focus-visible { outline: none; border-color: var(--gold); }
+    .sortx.open .sortx-btn { border-color: var(--gold); color: var(--gold-br); }
+    .sortx-caret { width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translate(-1px, -1px); opacity: .7; transition: transform .2s; }
+    .sortx.open .sortx-caret { transform: rotate(-135deg) translate(-1px, -1px); }
+    .sortx-menu { position: absolute; top: calc(100% + 6px); right: 0; min-width: 100%; margin: 0; padding: 5px; list-style: none; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); z-index: 40; opacity: 0; transform: translateY(-4px) scale(.98); transform-origin: top right; pointer-events: none; transition: opacity .16s ease, transform .16s ease; }
+    .sortx.open .sortx-menu { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+    .sortx-menu li { display: flex; align-items: center; gap: 8px; padding: 8px 12px 8px 26px; border-radius: 8px; color: var(--parch-dim); font: 13px "Hanken Grotesk", system-ui, sans-serif; white-space: nowrap; cursor: pointer; position: relative; transition: background .12s, color .12s; }
+    .sortx-menu li:hover { background: var(--panel-2); color: var(--parch); }
+    .sortx-menu li[aria-selected="true"] { color: var(--gold-br); }
+    .sortx-menu li[aria-selected="true"]::before { content: ""; position: absolute; left: 11px; top: 50%; width: 4px; height: 8px; margin-top: -5px; border-right: 2px solid var(--gold); border-bottom: 2px solid var(--gold); transform: rotate(45deg); }
     .dense { background: var(--ink); border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px 12px; color: var(--muted); font: 600 12px "Hanken Grotesk", system-ui, sans-serif; cursor: pointer; white-space: nowrap; transition: .18s; }
     .dense:hover { color: var(--parch); }
     .dense[aria-pressed="true"] { color: var(--gold-br); border-color: var(--gold); }
@@ -237,7 +249,8 @@
       .toolbar { width: 100%; margin: 8px 0 0; }
       .seg { flex-wrap: wrap; width: 100%; }
       .search { flex: 1; width: auto; } .search:focus { width: auto; }
-      .sort { flex: 1; min-width: 150px; }
+      .sortx { flex: 1; min-width: 150px; }
+      .sortx-btn { width: 100%; justify-content: space-between; }
 
       /* le conteneur du tableau devient une pile de cartes espacees */
       .panel.flow { background: none; border: 0; box-shadow: none; overflow: visible; }
@@ -299,11 +312,17 @@
   <header>
     <div class="header-inner">
     <div class="brand">
-      <svg class="mark" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="24" cy="24" r="20" stroke-opacity=".5"/>
-        <path d="M24 6 L28 24 L24 42 L20 24 Z" fill="currentColor" stroke="none"/>
-        <path d="M6 24 L24 20 L42 24 L24 28 Z" fill="currentColor" fill-opacity=".5" stroke="none"/>
-        <circle cx="24" cy="24" r="2.5" fill="#0a0d14" stroke="none"/>
+      <svg class="mark" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Chapeau de paille One Piece">
+        <!-- bord (brim) -->
+        <ellipse cx="24" cy="30" rx="20" ry="6.2" fill="#E7B65C" stroke="#8f5f24" stroke-width="1.5"/>
+        <!-- coiffe (crown) -->
+        <path d="M13 27 Q12.4 10 24 10 Q35.6 10 35 27 Z" fill="#F0C778" stroke="#8f5f24" stroke-width="1.5" stroke-linejoin="round"/>
+        <!-- pailles -->
+        <path d="M24 11 L24 24.5" stroke="#c98f3a" stroke-width="1" opacity=".5"/>
+        <path d="M18.5 11.6 Q17 19 18.3 24.5" stroke="#c98f3a" stroke-width="1" opacity=".45" fill="none"/>
+        <path d="M29.5 11.6 Q31 19 29.7 24.5" stroke="#c98f3a" stroke-width="1" opacity=".45" fill="none"/>
+        <!-- bandeau rouge -->
+        <path d="M13.3 24.3 Q24 27.2 34.7 24.3 L34.3 20 Q24 22.7 13.7 20 Z" fill="#D6483B" stroke="#9a2b23" stroke-width="1" stroke-linejoin="round"/>
       </svg>
       <div>
         <h1>OP&nbsp;<b>Finder</b></h1>
@@ -366,12 +385,18 @@
                 <button data-f="preorder" aria-pressed="false">Préco</button>
                 <button data-f="maybe" aria-pressed="false">Non confirmé</button>
               </div>
-              <select class="sort" id="sort" aria-label="Trier les produits">
-                <option value="change">Maj récente</option>
-                <option value="site">Boutique</option>
-                <option value="price">Prix croissant</option>
-                <option value="price_desc">Prix décroissant</option>
-              </select>
+              <div class="sortx" id="sort" data-value="change">
+                <button class="sortx-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Trier les produits">
+                  <span class="sortx-label">Maj récente</span>
+                  <i class="sortx-caret"></i>
+                </button>
+                <ul class="sortx-menu" role="listbox">
+                  <li role="option" data-value="change" aria-selected="true">Maj récente</li>
+                  <li role="option" data-value="site" aria-selected="false">Boutique</li>
+                  <li role="option" data-value="price" aria-selected="false">Prix croissant</li>
+                  <li role="option" data-value="price_desc" aria-selected="false">Prix décroissant</li>
+                </ul>
+              </div>
               <button class="dense" id="dense" type="button" aria-pressed="false" title="Densité d'affichage">Compact</button>
               <input class="search" id="q" type="search" placeholder="Rechercher…" autocomplete="off">
             </div>
@@ -483,6 +508,35 @@
     const q = document.getElementById('q');
     const seg = document.getElementById('seg');
     const sort = document.getElementById('sort');
+    // Menu de tri custom : on lui greffe une interface compatible <select>
+    // (.value en lecture/ecriture + evenement 'change') pour ne rien changer
+    // a la logique de tri qui suit.
+    if (sort) {
+      const sBtn = sort.querySelector('.sortx-btn');
+      const sLabel = sort.querySelector('.sortx-label');
+      const sOpts = [...sort.querySelectorAll('[role="option"]')];
+      const sClose = () => { sort.classList.remove('open'); sBtn.setAttribute('aria-expanded', 'false'); };
+      const sSet = (v, fire) => {
+        const opt = sOpts.find(o => o.dataset.value === v) || sOpts[0];
+        sort.dataset.value = opt.dataset.value;
+        sLabel.textContent = opt.textContent;
+        sOpts.forEach(o => o.setAttribute('aria-selected', o === opt ? 'true' : 'false'));
+        if (fire) sort.dispatchEvent(new Event('change'));
+      };
+      Object.defineProperty(sort, 'value', {
+        get() { return sort.dataset.value; },
+        set(v) { sSet(v, false); },
+        configurable: true,
+      });
+      sBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        sort.classList.toggle('open');
+        sBtn.setAttribute('aria-expanded', sort.classList.contains('open') ? 'true' : 'false');
+      });
+      sOpts.forEach(o => o.addEventListener('click', () => { sSet(o.dataset.value, true); sClose(); }));
+      document.addEventListener('click', e => { if (!sort.contains(e.target)) sClose(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') sClose(); });
+    }
     const shown = document.getElementById('shown');
     const noresult = document.getElementById('noresult');
     // Par defaut : "Pertinents" = on masque les ruptures (la moitie de la liste),

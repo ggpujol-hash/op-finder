@@ -539,15 +539,16 @@ sites:
     out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible", "out of stock", "sold out"]
 
   # --- Plateforme FR proprietaire (PowerBoutique-like) ---
-  # SOD Games (BE) : protege par Cloudflare (challenge JS sur toutes les pages).
-  # Fetch via FlareSolverr en CI (unblock). Selecteurs verifies via sonde
-  # FlareSolverr : blocs `.block_unique_product`, titre `.nomprod_link`, prix
-  # `.prixprod`. Signal de stock : bouton "Ajouter au panier" (a.addbasket) present
-  # = achetable ; sur cette plateforme il est remplace par un texte de rupture
-  # quand l'article est epuise -> in_stock_selector + marqueurs texte en secours.
+  # SOD Games (BE) : protege par Cloudflare (managed challenge "Just a moment...").
+  # DESACTIVE (2026-07-12) : INSOLVABLE par les resolveurs testes. FlareSolverr
+  # plante en 500 sur ce challenge precis (les 3 autres sites unblock passent) ;
+  # Byparr, teste en remplacement, echoue aussi (408 timeout a 60s) et degrade
+  # Inerdini. A reactiver si le challenge change ou via une API de scraping payante.
+  # Selecteurs (a re-verifier si reactive) : blocs `.block_unique_product`, titre
+  # `.nomprod_link`, prix `.prixprod`, stock via bouton `a.addbasket`.
   - name: "SOD Games"
     type: generic_html
-    enabled: true
+    enabled: false
     unblock: true
     url: "https://www.sodgames.be/one-piece-card-game-b145655.html"
     base_url: "https://www.sodgames.be"

@@ -40,13 +40,24 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
-    # FlareSolverr resout les challenges Cloudflare pour les boutiques marquees
-    # `unblock: true` (Destock TCG, Inerdini). Accessible sur localhost:8191.
+    # Resolveur de challenges Cloudflare pour les boutiques `unblock: true`
+    # (Oupi, SOD Games, Destock TCG, Inerdini). Expose l'API FlareSolverr `/v1`
+    # sur localhost:8191 -> aucun changement cote code (FLARESOLVERR_URL inchange).
+    #
+    # BASCULE Byparr (2026-07-12) : FlareSolverr:latest plante en 500 sur le
+    # "managed challenge" de SOD Games (les 3 autres passaient). Byparr est un
+    # remplacant drop-in (meme API /v1, port 8191) base sur nodriver/Camoufox,
+    # concu pour les challenges recents. Rollback = recommenter l'image FlareSolverr.
     services:
       flaresolverr:
-        image: ghcr.io/flaresolverr/flaresolverr:latest
+        # image: ghcr.io/flaresolverr/flaresolverr:latest   # ancien resolveur (rollback)
+        image: ghcr.io/thephaseless/byparr:latest
         ports:
           - 8191:8191
+        # Byparr lance un vrai Chromium : /dev/shm par defaut (64 Mo) sature et le
+        # navigateur crashe (500 sur TOUTES les requetes). On agrandit la memoire
+        # partagee, comme recommande par le projet, pour eviter ces plantages.
+        options: --shm-size=2g
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -42,6 +42,12 @@ class SiteConfig:
     # explicitement tagues dans une langue voulue (cf. include_lang_codes) — utile
     # pour un shop FR dont les titres anglais sont marques "ENG" mais pas les FR.
     lang: str = ""
+    # Marqueurs d'exclusion (langue) du filtre global a NE PAS appliquer sur ce site.
+    # Utile quand un mot-cle FR global est en fait present dans TOUS les titres du
+    # site, y compris les produits anglais voulus (ex. Philibert prefixe chaque
+    # fiche par "One Piece Le Jeu de Cartes", ce qui ferait tomber "jeu de cartes"
+    # sur ses displays EN). Soustractif : le reste du filtre global s'applique.
+    exclude_keywords_skip: list[str] = field(default_factory=list)
     # Specifiques a l'adapter playwright_html :
     wait_for: str | None = None   # selecteur CSS a attendre avant de lire la page
     wait_ms: int = 2500           # attente supplementaire (ms) apres chargement
@@ -64,6 +70,8 @@ class AppConfig:
     # casser les constructions par position et rester retro-compatibles.
     include_lang_codes: list[str] = field(default_factory=list)
     site_lang: dict[str, str] = field(default_factory=dict)
+    # name -> marqueurs d'exclusion globaux a ignorer pour ce site (soustractif).
+    site_exclude_skip: dict[str, list[str]] = field(default_factory=dict)
     # Exclusion par TYPE de produit (boosters a l'unite, sleeves, starter decks).
     # `exclude_type_terms` : exclu si le titre contient l'un de ces termes.
     # `booster_unit_markers` : termes de "booster a l'unite" -> exclus SEULEMENT si
@@ -113,6 +121,7 @@ def load_config(path: str | Path | None = None) -> AppConfig:
                 oos_markers_reliable=bool(s.get("oos_markers_reliable", False)),
                 unblock=bool(s.get("unblock", False)),
                 lang=str(s.get("lang", "")).lower(),
+                exclude_keywords_skip=[k.lower() for k in s.get("exclude_keywords_skip", [])],
                 wait_for=s.get("wait_for"),
                 wait_ms=int(s.get("wait_ms", 2500)),
                 scroll=s.get("scroll", False),
@@ -131,6 +140,9 @@ def load_config(path: str | Path | None = None) -> AppConfig:
         include_lang_codes=include_lang_codes,
         site_keywords={s.name: s.keywords for s in sites if s.keywords is not None},
         site_lang={s.name: s.lang for s in sites if s.lang},
+        site_exclude_skip={
+            s.name: s.exclude_keywords_skip for s in sites if s.exclude_keywords_skip
+        },
         exclude_type_terms=exclude_type_terms,
         booster_unit_markers=booster_unit_markers,
         bulk_markers=bulk_markers,

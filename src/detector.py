@@ -92,7 +92,14 @@ def apply_filters(states: list[ProductState], cfg: AppConfig) -> list[ProductSta
         # On scanne le titre + les classes CSS de la fiche (indice de langue). On
         # scanne aussi le slug URL en ignorant le premier segment de locale (/fr/, /en/...).
         lang_text = f"{st.title} {st.tags}"
-        if cfg.exclude_keywords and _matches(lang_text, cfg.exclude_keywords):
+        # Certains sites imposent un marqueur FR global dans TOUS leurs titres (ex.
+        # Philibert : "One Piece Le Jeu de Cartes - ..."). On retire alors ces
+        # marqueurs de l'exclusion pour ce site (le reste du filtre langue joue).
+        skip = cfg.site_exclude_skip.get(st.site)
+        exclude_keywords = (
+            [k for k in cfg.exclude_keywords if k not in skip] if skip else cfg.exclude_keywords
+        )
+        if exclude_keywords and _matches(lang_text, exclude_keywords):
             continue
         # Nom de set FR non tague : accents francais (é, à, ç...) dans le TITRE
         # (pas les tags CSS, qui sont ASCII). Actif seulement quand le francais est

@@ -128,6 +128,12 @@ sites:
     url: "https://www.philibertnet.com/fr/15860-one-piece-le-jeu-de-cartes"
     base_url: "https://www.philibertnet.com"
     interval_seconds: 180
+    # Philibert prefixe CHAQUE fiche par "One Piece Le Jeu de Cartes", y compris ses
+    # editions anglaises (ex. "... OP16 The Time of Battle - Display"). Le marqueur
+    # global "jeu de cartes" les jetterait tous -> on l'ignore ici. Les editions FR
+    # restent ecartees par leurs accents ("Decisive") et articles ("de la"/"du").
+    exclude_keywords_skip:
+      - "jeu de cartes"
     selectors:
       item: "div.product-card"
       title: ".product-card__title"
@@ -474,6 +480,27 @@ sites:
     # `disabled` quand le produit est epuise (et perd data-id-product). C'est le
     # signal de stock fiable de la carte -> bouton actif = en stock, sinon rupture.
     in_stock_selector: ".ajax_add_to_cart_button:not(.disabled)"
+    out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
+
+  # Poke Zenith (FR) : PrestaShop standard (theme Elementor). La categorie parente
+  # 101-one-piece agrege TOUTES les sous-categories (displays, boosters, coffrets,
+  # tins, premium...) sur ~3 pages -> max_pages. Chaque carte porte un flag fiable
+  # "En stock" / "Rupture de stock" -> oos_markers_reliable. Catalogue mixte FR/EN :
+  # le filtre de langue ecarte les references FR, garde les "- EN". Selecteurs
+  # PrestaShop verifies (juillet 2026).
+  - name: "Poke Zenith"
+    type: generic_html
+    enabled: true
+    url: "https://www.pokezenith.com/101-one-piece"
+    base_url: "https://www.pokezenith.com"
+    interval_seconds: 180
+    max_pages: 3
+    selectors:
+      item: "article.product-miniature, .product-miniature"
+      title: ".product-title a, h3.product-title a, .product-title"
+      link: ".product-title a, a.thumbnail, a.product-thumbnail"
+      price: ".product-price-and-shipping .price, .price"
+    oos_markers_reliable: true
     out_of_stock_markers: ["rupture", "epuise", "épuisé", "indisponible"]
 
   # Oupi.eu : PrestaShop protege par Cloudflare (403 "administrative rules" sur

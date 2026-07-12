@@ -122,12 +122,25 @@ sites:
   # Selecteurs VERIFIES sur la page categorie One Piece (juin 2026).
   # On vise la categorie plutot que la recherche : la recherche Philibert
   # redirige les bots vers l'accueil.
+  #
+  # STOCK EN JAVASCRIPT : le statut n'est PAS dans le HTML statique. Chaque carte
+  # a un <p class="stock-block"> VIDE, rempli en AJAX apres chargement avec la
+  # classe `in-stock`/`out-of-stock` et le texte "En stock"/"Rupture". Le bouton
+  # "Ajouter au panier" (a[data-action=add]), lui, est TOUJOURS present -> inutile
+  # comme signal (il faisait passer tous les epuises pour dispo). D'ou :
+  #   - adapter playwright_html (on execute le JS pour peupler .stock-block) ;
+  #   - on attend qu'au moins une carte ait son statut resolu (wait_for) ;
+  #   - detection par le texte "Rupture" (oos_markers_reliable) ; plus d'in_stock_selector.
   - name: "Philibert"
-    type: generic_html
+    type: playwright_html
     enabled: true
     url: "https://www.philibertnet.com/fr/15860-one-piece-le-jeu-de-cartes"
     base_url: "https://www.philibertnet.com"
     interval_seconds: 180
+    # Attend la resolution AJAX du stock (sinon .stock-block vide -> faux "dispo").
+    wait_for: ".product-card .stock-block.in-stock, .product-card .stock-block.out-of-stock"
+    wait_ms: 2500
+    oos_markers_reliable: true   # "Rupture" fiable ; son absence = "En stock" confirme
     # Philibert prefixe CHAQUE fiche par "One Piece Le Jeu de Cartes", y compris ses
     # editions anglaises (ex. "... OP16 The Time of Battle - Display"). Le marqueur
     # global "jeu de cartes" les jetterait tous -> on l'ignore ici. Les editions FR
@@ -144,8 +157,6 @@ sites:
       - "indisponible"
       - "epuise"
       - "bientot disponible"
-    # Le bouton "Ajouter au panier" n'est present que si le produit est en stock.
-    in_stock_selector: "a[data-action=add]"
 
   # Selecteurs VERIFIES sur la page categorie One Piece (juin 2026).
   - name: "UltraJeux"

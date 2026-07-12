@@ -628,6 +628,37 @@ sites:
       link: ":self"
     out_of_stock_markers: ["rupture", "indisponible", "épuisé"]
 
+  # Royal TCG (FR) : boutique Wix. Comme TCGame, les classes CSS sont hachees et
+  # changent a chaque redeploiement -> INUTILISABLES. MAIS Wix expose des attributs
+  # `data-hook` STABLES (API Wix Stores) : on cible ceux-la. Les produits sont dans
+  # le HTML statique -> generic_html suffit (pas besoin de navigateur).
+  # Stock : le bouton d'achat porte le statut en texte -> "Ajouter au panier" =
+  # dispo, "Précommander" = precommande, "Bientot en précommande" = pas encore
+  # commandable (traite en rupture -> alerte quand ca ouvre). "bientot" dans les
+  # marqueurs OOS passe AVANT le label precommande (cf. _stock_status).
+  # NB : Wix charge le reste via un bouton "Voir plus" (JS) -> on voit les ~35
+  # premiers produits, ce qui couvre les displays. Selecteurs verifies (juillet 2026).
+  - name: "Royal TCG"
+    type: generic_html
+    enabled: true
+    url: "https://www.royaltcg.shop/onepiece"
+    base_url: "https://www.royaltcg.shop"
+    interval_seconds: 180
+    oos_markers_reliable: true
+    selectors:
+      item: "[data-hook='product-list-grid-item']"
+      title: "[data-hook='product-item-name']"
+      link: "[data-hook='product-item-product-details-link']"
+      price: "[data-hook='product-item-price-to-pay']"
+    out_of_stock_markers:
+      - "bientot"
+      - "bientôt"
+      - "épuisé"
+      - "epuise"
+      - "rupture"
+      - "indisponible"
+      - "sold out"
+
   # =====================================================================
   # Boutiques italiennes livrant en France / UE
   # =====================================================================

@@ -5,7 +5,7 @@ from src.adapters.generic_html import GenericHtmlAdapter, page_url, pagination_u
 from src.config import AppConfig, SiteConfig
 from src import db
 from src.detector import apply_filters, detect
-from src.models import Event, ProductState, clean_price, normalize_product_url
+from src.models import Event, ProductState, clean_price, normalize_product_url, scale_price
 from src.notifier import format_message
 
 
@@ -381,6 +381,41 @@ class ParsingAndNotifierTest(unittest.TestCase):
         self.assertEqual(clean_price("2 495,00€"), "2 495,00 €")
         self.assertEqual(clean_price("2\xa0495,00 €"), "2 495,00 €")
         self.assertIsNone(clean_price(None))
+
+    def test_scale_price_reconstitue_le_ttc(self) -> None:
+        # Oupi via FlareSolverr rend le HT : x1.2 (TVA 20%) -> TTC affiche aux
+        # visiteurs FR. Verifie sur le display OP-08 (2079,17 HT -> 2495 TTC).
+        self.assertEqual(scale_price("2 079,17 €", 1.2), "2 495,00 €")
+        self.assertEqual(scale_price("99,80 €", 1.2), "119,76 €")
+        # Facteur neutre ou prix absent : inchange.
+        self.assertEqual(scale_price("2 495,00 €", 1.0), "2 495,00 €")
+        self.assertIsNone(scale_price(None, 1.2))
+
+    def test_price_multiplier_applique_dans_le_parsing(self) -> None:
+        site = SiteConfig(
+            name="Oupi", type="generic_html", url="https://o.eu/c", base_url="https://o.eu",
+            selectors={"item": "article", "title": "a", "link": "a", "price": ".price"},
+            price_multiplier=1.2,
+        )
+        html = ('<article><a href="/p/1-op08">Case de 12 Display OP-08</a>'
+                '<span class="price">2 079,17 €</span></article>')
+        prods = parse_products(html, site)
+        self.assertEqual(prods[0].price, "2 495,00 €")
+
+    def test_price_change_ignore_micro_variation(self) -> None:
+        conn = _make_conn()
+        url = "https://e.com/op17"
+        detect(conn, [ProductState("Shop", "OP17 Display", url,
+                                   price="119,76 €", stock_status="confirmed")])
+        # +0,6% (sous le seuil de 1%) -> pas d'alerte, mais prix persiste.
+        events = detect(conn, [ProductState("Shop", "OP17 Display", url,
+                                            price="120,50 €", stock_status="confirmed")])
+        self.assertEqual(events, [])
+        self.assertEqual(
+            conn.execute("SELECT price FROM products WHERE key=?",
+                         (ProductState("Shop", "OP17 Display", url).key,)).fetchone()[0],
+            "120,50 €",
+        )
 
     def test_keywords_keep_displays_without_one_piece_in_title(self) -> None:
         cfg = _make_cfg()

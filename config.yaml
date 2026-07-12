@@ -527,6 +527,12 @@ sites:
     # Cloudflare/FlareSolverr : lent a resoudre -> cadence espacee pour ne pas
     # serialiser les boutiques rapides derriere lui (cf. _due_for_check).
     interval_seconds: 600
+    # FlareSolverr fetche depuis l'IP du runner CI (hors-FR) : la geoloc PrestaShop
+    # bascule l'affichage en HT. Verifie 2026-07-12 : la fiche affiche "2 495,00 €
+    # Taxe Incluse" pour un visiteur FR, mais FlareSolverr remonte 2079,17 (= /1,2).
+    # On retablit le TTC (TVA 20%) affiche aux vrais clients. NB : Byparr rendait
+    # deja le TTC -> a retirer si on rebascule de resolveur.
+    price_multiplier: 1.2
     selectors:
       item: "article.product-miniature, .product-miniature, .js-product-miniature"
       title: ".product-title a, h3 a, h2 a, .product-name"

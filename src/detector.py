@@ -7,7 +7,25 @@ from urllib.parse import urlsplit
 
 from .config import AppConfig
 from .db import upsert_product
-from .models import Event, ProductState, clean_price
+from .models import Event, ProductState, clean_price, parse_amount
+
+# En-deca de cette variation relative, on ne considere PAS un changement de prix
+# comme une alerte : micro-ecarts de reformatage/arrondi, ou basculements de
+# contexte parasites cote source. 1% laisse passer toute vraie promo.
+_PRICE_CHANGE_MIN_RATIO = 0.01
+
+
+def _is_significant_price_change(prev: str | None, new: str | None) -> bool:
+    """Vrai si l'ecart de prix merite une alerte. Compare les MONTANTS (relatif
+    au prix precedent) ; a defaut de montant lisible, retombe sur la comparaison
+    de chaines nettoyees (comportement historique)."""
+    old_amount = parse_amount(prev)
+    new_amount = parse_amount(new)
+    if old_amount is None or new_amount is None:
+        return clean_price(prev) != clean_price(new)
+    if old_amount == 0:
+        return new_amount != 0
+    return abs(new_amount - old_amount) / old_amount > _PRICE_CHANGE_MIN_RATIO
 
 
 def _matches(title: str, keywords: list[str]) -> bool:
@@ -168,7 +186,9 @@ def detect(conn: sqlite3.Connection, states: list[ProductState]) -> list[Event]:
                     Event(kind="restock", state=st, detail="Precommande desormais disponible")
                 )
                 changed = True
-            elif st.available and clean_price(prev["price"]) != clean_price(st.price) and clean_price(st.price):
+            elif st.available and clean_price(st.price) and _is_significant_price_change(
+                prev["price"], st.price
+            ):
                 events.append(
                     Event(kind="price_change", state=st,
                           detail=f"Prix : {prev['price']} -> {st.price}")

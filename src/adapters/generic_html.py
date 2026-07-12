@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup
 import httpx
 
 from ..config import SiteConfig
-from ..models import ProductState, clean_price, normalize_product_url
+from ..models import ProductState, clean_price, normalize_product_url, scale_price
 from .base import Adapter
 
 log = logging.getLogger("adapter.generic")
@@ -165,7 +165,10 @@ def parse_products(html: str, site: SiteConfig) -> list[ProductState]:
                 site=site.name,
                 title=title,
                 url=url,
-                price=clean_price(_select_one_text(node, site.selectors.get("price"))),
+                price=scale_price(
+                    clean_price(_select_one_text(node, site.selectors.get("price"))),
+                    site.price_multiplier,
+                ),
                 available=stock_status != "out",
                 stock_status=stock_status,
                 # Classes CSS de la fiche : contiennent souvent un indice de langue

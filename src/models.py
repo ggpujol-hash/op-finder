@@ -32,6 +32,41 @@ def clean_price(value: str | None) -> str | None:
     return v.strip() or None
 
 
+def parse_amount(price: str | None) -> float | None:
+    """Extrait le montant numerique d'un prix (nettoye ou brut) en float.
+
+    "2 495,00 €" -> 2495.0. Renvoie None si aucun montant lisible. Partage par le
+    scaling (scale_price) et la detection de variation significative (detector)."""
+    if not price:
+        return None
+    match = re.search(r"\d[\d ]*(?:,\d+)?", price)
+    if not match:
+        return None
+    try:
+        return float(match.group(0).replace(" ", "").replace(",", "."))
+    except ValueError:
+        return None
+
+
+def scale_price(price: str | None, multiplier: float = 1.0) -> str | None:
+    """Applique un facteur au prix deja nettoye (clean_price) et le reformate.
+
+    Sert quand la SOURCE renvoie le prix dans un mauvais contexte de taxe : Oupi,
+    fetche via FlareSolverr depuis une IP CI hors-FR, rend du HT -> multiplier 1.2
+    reconstitue le TTC affiche aux vrais visiteurs francais. Laisse le prix tel
+    quel si multiplier vaut 1.0 ou si le montant n'est pas lisible.
+    """
+    if not price or multiplier == 1.0:
+        return price
+    value = parse_amount(price)
+    if value is None:
+        return price
+    scaled = value * multiplier
+    # Format francais : espace pour les milliers, virgule pour les decimales.
+    formatted = f"{scaled:,.2f}".replace(",", " ").replace(".", ",")
+    return f"{formatted} €"
+
+
 def normalize_product_url(url: str) -> str:
     """Return a stable product URL for deduplication and display."""
     if not url:

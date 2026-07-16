@@ -39,7 +39,7 @@ MASS_OOS_MIN = 5
 # minutes (Cloudflare passager, throttle CI, timeout) et reviennent seules au
 # passage suivant : les alerter provoquait un spam 'hors ligne' / 'operationnel'
 # sans utilite. Le retour n'est signale que si la panne avait ete annoncee.
-HEALTH_DOWN_AFTER = 5
+HEALTH_DOWN_AFTER = 8
 
 
 def _cooldown_hours(kind: str) -> float:

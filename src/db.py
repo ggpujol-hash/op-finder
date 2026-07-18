@@ -160,6 +160,34 @@ def consecutive_failures(conn: sqlite3.Connection, site: str) -> int:
     return n
 
 
+def failure_streak_bounds(
+    conn: sqlite3.Connection, site: str
+) -> tuple[datetime, datetime] | None:
+    """Bornes temporelles de la serie de checks KO consecutifs la plus recente.
+
+    Retourne (debut, fin) = ran_at du plus ancien et du plus recent KO de la serie
+    en cours, ou None si le dernier check est OK / le site n'a jamais ete checke.
+
+    Sert a n'annoncer une panne qu'apres une duree soutenue (24h) plutot qu'apres
+    un nombre de checks : une boutique peut blipper KO plusieurs passages d'affilee
+    sur quelques minutes sans meriter d'alerte 'hors ligne'."""
+    oldest = None
+    newest = None
+    for row in conn.execute(
+        "SELECT ok, ran_at FROM checks WHERE site = ? ORDER BY ran_at DESC, id DESC LIMIT 500",
+        (site,),
+    ):
+        if row["ok"]:
+            break
+        ts = datetime.fromisoformat(row["ran_at"])
+        if newest is None:
+            newest = ts
+        oldest = ts
+    if oldest is None:
+        return None
+    return oldest, newest
+
+
 def seconds_since_last_check(conn: sqlite3.Connection, site: str) -> float | None:
     """Secondes ecoulees depuis le dernier check (ok OU ko) d'un site.
 

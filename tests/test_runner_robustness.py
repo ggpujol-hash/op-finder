@@ -124,8 +124,16 @@ class RunnerRobustnessTest(unittest.TestCase):
         # Pas de canal -> rien a re-tenter : on journalise pour ne pas re-traiter.
         self.assertEqual(len(self._alerts()), 1)
 
+    def _age_checks(self, site: str, hours: float) -> None:
+        """Recule dans le temps tous les checks d'un site (simule le temps ecoule)."""
+        from datetime import datetime, timedelta, timezone
+        with db.connect() as conn:
+            for row in conn.execute("SELECT id, ran_at FROM checks WHERE site = ?", (site,)):
+                aged = (datetime.fromisoformat(row["ran_at"]) - timedelta(hours=hours)).isoformat()
+                conn.execute("UPDATE checks SET ran_at = ? WHERE id = ?", (aged, row["id"]))
+            conn.commit()
+
     def test_health_alert_only_after_sustained_outage(self) -> None:
-        from src.runner import HEALTH_DOWN_AFTER
         notifier = FakeNotifier()
         url = "https://x.test/op17"
         self.holder.states = [_prod(url)]
@@ -134,12 +142,15 @@ class RunnerRobustnessTest(unittest.TestCase):
 
         import httpx
         self.holder.raises = httpx.ConnectError("boom")
-        # Les premiers echecs (sous le seuil) restent silencieux : un blip revient seul.
-        for _ in range(HEALTH_DOWN_AFTER - 1):
+        # Plusieurs echecs rapproches (bien sous 24h) restent silencieux : un blip
+        # revient seul, meme s'il dure plusieurs checks d'affilee.
+        for _ in range(10):
             self._run(notifier)
-            self.assertEqual(notifier.texts, [], "un blip ne doit pas alerter")
-        # Au franchissement du seuil, une (seule) alerte de panne part.
-        self._run(notifier)
+            self.assertEqual(notifier.texts, [], "des echecs rapproches ne doivent pas alerter")
+
+        # On vieillit la serie de KO de 25h : la panne est desormais soutenue.
+        self._age_checks("TestShop", 25)
+        self._run(notifier)                       # ce check franchit le seuil de duree
         self.assertEqual(len(notifier.texts), 1)
         self.assertIn("hors ligne", notifier.texts[0])
         # Un echec supplementaire ne re-alerte pas (pas de spam de rappel).
@@ -153,16 +164,15 @@ class RunnerRobustnessTest(unittest.TestCase):
         self.assertIn("operationnel", notifier.texts[1])
 
     def test_health_blip_stays_silent(self) -> None:
-        """Un site qui blippe hors-ligne 1-2 checks puis revient ne genere aucune
-        alerte (ni panne ni retour) — c'etait la source du spam."""
-        from src.runner import HEALTH_DOWN_AFTER
+        """Un site qui blippe hors-ligne quelques checks (bien moins de 24h) puis
+        revient ne genere aucune alerte (ni panne ni retour) — source du spam."""
         notifier = FakeNotifier()
         url = "https://x.test/op17"
         self.holder.states = [_prod(url)]
         self._run(notifier)                       # OK
         import httpx
         self.holder.raises = httpx.ConnectError("boom")
-        for _ in range(HEALTH_DOWN_AFTER - 1):     # blip sous le seuil
+        for _ in range(10):                        # blip : rapproche, sous 24h
             self._run(notifier)
         self.holder.raises = None                  # revient seul
         self.holder.states = [_prod(url)]

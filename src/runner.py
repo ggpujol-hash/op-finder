@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import random
 import time
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -34,12 +35,14 @@ RECONCILE_MIN_RATIO = 0.6
 # panier changee) plutot qu'un vrai sell-out global -> check ignore.
 MASS_OOS_RATIO = 0.8
 MASS_OOS_MIN = 5
-# Alerte de sante (site hors ligne) : on n'annonce une panne qu'apres ce nombre
-# de checks KO consecutifs. Beaucoup de boutiques blippent hors-ligne quelques
-# minutes (Cloudflare passager, throttle CI, timeout) et reviennent seules au
-# passage suivant : les alerter provoquait un spam 'hors ligne' / 'operationnel'
-# sans utilite. Le retour n'est signale que si la panne avait ete annoncee.
-HEALTH_DOWN_AFTER = 8
+# Alerte de sante (site hors ligne) : on n'annonce une panne qu'apres cette DUREE
+# de KO ininterrompu (24h), pas apres un nombre de checks. Beaucoup de boutiques
+# blippent hors-ligne (Cloudflare passager, throttle CI, timeout) pendant plusieurs
+# checks d'affilee sur quelques minutes et reviennent seules : les alerter apres
+# quelques refus polluait le telephone de notifications inutiles. On ne signale
+# donc qu'une panne reellement soutenue. Le retour n'est annonce que si la panne
+# l'avait ete.
+HEALTH_DOWN_AFTER_HOURS = 24.0
 
 
 def _cooldown_hours(kind: str) -> float:
@@ -104,25 +107,32 @@ def run_site_check(site: SiteConfig, cfg: AppConfig, notifier: TelegramNotifier,
     conn = db.connect()
 
     def _record_check(ok: bool, items: int, message: str) -> None:
-        # Nombre d'echecs consecutifs AVANT ce check (l'insertion du check courant
-        # vient juste apres) : sert a n'alerter qu'apres une panne soutenue.
-        fails_before = db.consecutive_failures(conn, site.name)
+        # Bornes de la serie de KO en cours AVANT ce check (l'insertion du check
+        # courant vient juste apres) : sert a n'alerter qu'apres une panne soutenue
+        # dans le temps (>= HEALTH_DOWN_AFTER_HOURS), pas apres un nombre de refus.
+        prior = db.failure_streak_bounds(conn, site.name)
         db.log_check(conn, site.name, ok=ok, items=items, message=message)
         if seed:
             return
+        now = datetime.now(timezone.utc)
+        threshold = timedelta(hours=HEALTH_DOWN_AFTER_HOURS)
         if not ok:
-            # On n'annonce la panne qu'au moment ou elle devient soutenue (exactement
-            # au franchissement du seuil, pour n'alerter qu'une fois). Un blip isole
-            # (1-2 echecs) revient seul et reste silencieux.
-            if fails_before + 1 == HEALTH_DOWN_AFTER:
+            # On n'annonce la panne qu'au moment ou sa DUREE franchit le seuil, et
+            # une seule fois : la duree ecoulee au precedent KO etait sous le seuil,
+            # celle a ce check l'atteint. Un blip de quelques checks/minutes reste
+            # donc silencieux et revient seul.
+            start = prior[0] if prior else now  # 1er KO d'une nouvelle serie = maintenant
+            prev_ko = prior[1] if prior else now
+            if (prev_ko - start) < threshold <= (now - start):
+                hours = round((now - start).total_seconds() / 3600)
                 notifier.send_text(
-                    f"⚠️ <b>{site.name}</b> hors ligne depuis {HEALTH_DOWN_AFTER} checks — {message}"
+                    f"⚠️ <b>{site.name}</b> hors ligne depuis {hours}h — {message}"
                 )
         else:
             # Retour operationnel : signale UNIQUEMENT si la panne avait ete annoncee
-            # (echecs consecutifs >= seuil). Un simple blip jamais annonce ne genere
-            # donc pas non plus de '_de nouveau operationnel_'.
-            if fails_before >= HEALTH_DOWN_AFTER:
+            # (serie KO ayant deja franchi le seuil de duree). Un blip jamais annonce
+            # ne genere donc pas non plus de '_de nouveau operationnel_'.
+            if prior and (prior[1] - prior[0]) >= threshold:
                 notifier.send_text(
                     f"✅ <b>{site.name}</b> de nouveau operationnel ({items} produits)"
                 )
